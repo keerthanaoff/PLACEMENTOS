@@ -9,18 +9,18 @@ export interface UserSession {
 const ACCOUNTS = [
   {
     role: "ADMIN",
-    employeeIds: ["ADM001", "SIVASUBRAMANIAM"],
+    employeeIds: ["ADM001", "SIVASUBRAMANIAM", "ADMIN"],
     displayId: "ADM001",
-    passwords: ["Admin@123", "admin@123"],
+    passwords: ["admin123", "Admin@123", "admin@123"],
     name: "Sivasubramaniam",
     title: "Administrator",
     email: "admin@placementos.ai"
   },
   {
     role: "MANAGER",
-    employeeIds: ["MGR001", "JAYAKANNAN"],
+    employeeIds: ["MGR001", "JAYAKANNAN", "MANAGER"],
     displayId: "MGR001",
-    passwords: ["Manager@123"],
+    passwords: ["manager123", "Manager@123"],
     name: "Jayakannan",
     title: "Placement Manager",
     email: "manager@placementos.ai"
@@ -29,7 +29,7 @@ const ACCOUNTS = [
     role: "LEAD",
     employeeIds: ["LED001", "LEAD"],
     displayId: "LED001",
-    passwords: ["Lead@123", "lead@123"],
+    passwords: ["lead123", "Lead@123", "lead@123"],
     name: "Placement Lead",
     title: "Placement Lead",
     email: "lead@placementos.ai"
