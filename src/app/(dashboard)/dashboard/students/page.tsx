@@ -421,7 +421,7 @@ export default function StudentsPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
           {topRankedStudents.map((st, idx) => (
-            <div key={st.id} className="bg-white/10 backdrop-blur-md border border-white/15 p-3 rounded-xl flex flex-col justify-between">
+            <div key={`top-${st.id || st.rollNumber || idx}-${idx}`} className="bg-white/10 backdrop-blur-md border border-white/15 p-3 rounded-xl flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <span className={`w-6 h-6 rounded-full flex items-center justify-center font-extrabold text-xs ${
                   idx === 0 ? "bg-amber-400 text-gray-900" : idx === 1 ? "bg-gray-300 text-gray-900" : idx === 2 ? "bg-amber-700 text-white" : "bg-white/20 text-white"
@@ -515,8 +515,8 @@ export default function StudentsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-800 text-gray-700 dark:text-gray-300">
-              {paginatedStudents.map((student) => (
-                <tr key={student.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+              {paginatedStudents.map((student, idx) => (
+                <tr key={`student-${student.id || student.rollNumber || idx}-${idx}`} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                   <td className="px-6 py-4 font-semibold text-gray-500 dark:text-gray-400">
                     {student.rollNumber || student.id}
                   </td>
