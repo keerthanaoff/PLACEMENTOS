@@ -6,18 +6,17 @@ import {
 } from "lucide-react";
 
 import { useEffect, useState } from "react";
-import { studentService, companyService, driveService, offerService } from "@/services/storageService";
+import { studentService, companyService, driveService } from "@/services/storageService";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
-    students: 0, companies: 0, cold: 0, warm: 0, hot: 0, drives: 0, placed: 0, offers: 0
+    students: 0, companies: 0, cold: 0, warm: 0, hot: 0, drives: 0, placed: 0
   });
 
   useEffect(() => {
     const students = studentService.getAll();
     const companies = companyService.getAll();
     const drives = driveService.getAll();
-    const offers = offerService.getAll();
 
     setStats({
       students: students.length,
@@ -27,7 +26,6 @@ export default function AdminDashboard() {
       hot: companies.filter(c => c.status === "HOT").length,
       drives: drives.length,
       placed: students.filter(s => s.placementStatus === "PLACED").length,
-      offers: offers.length > 0 ? offers.length : students.reduce((acc, s) => acc + (s.offers || 0), 0)
     });
   }, []);
 
@@ -39,7 +37,6 @@ export default function AdminDashboard() {
     { name: "Hot Companies", value: stats.hot.toString(), icon: Briefcase, color: "text-orange-500", bg: "bg-orange-50 dark:bg-orange-900/20" },
     { name: "Drives", value: stats.drives.toString(), icon: CalendarDays, color: "text-green-500", bg: "bg-green-50 dark:bg-green-900/20" },
     { name: "Students Placed", value: stats.placed.toString(), icon: Award, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
-    { name: "Total Offers", value: stats.offers.toString(), icon: TrendingUp, color: "text-purple-500", bg: "bg-purple-50 dark:bg-purple-900/20" },
   ];
 
   return (

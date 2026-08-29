@@ -22,7 +22,6 @@ const allNavItems = [
   { name: "JD Intelligence", href: "/dashboard/jds", icon: FileText, roles: ["ADMIN", "MANAGER"] },
   { name: "Recruiters", href: "/dashboard/recruiters", icon: UserSquare2, roles: ["ADMIN", "MANAGER"] },
   { name: "Applications", href: "/dashboard/applications", icon: ClipboardList, roles: ["ADMIN", "MANAGER", "LEAD"] },
-  { name: "Offers", href: "/dashboard/offers", icon: Award, roles: ["ADMIN", "MANAGER", "LEAD"] },
   { name: "Placement Analytics", href: "/dashboard/reports", icon: BarChart3, roles: ["ADMIN", "MANAGER", "LEAD"] },
   { name: "AI Resume", href: "/dashboard/ai-resume", icon: BrainCircuit, roles: ["ADMIN", "MANAGER", "LEAD"] },
   { name: "Placement Team", href: "/dashboard/team", icon: Users2, roles: ["ADMIN"] },
