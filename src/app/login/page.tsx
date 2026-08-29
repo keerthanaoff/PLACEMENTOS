@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, GraduationCap, Briefcase, ShieldCheck, UserCheck, KeyRound } from "lucide-react";
+import { Eye, EyeOff, GraduationCap, Briefcase } from "lucide-react";
 import { authService } from "@/services/authService";
 
 export default function LoginPage() {
@@ -26,13 +26,6 @@ export default function LoginPage() {
     }
   };
 
-  const fillDemo = (demoRole: string, demoId: string, demoPass: string) => {
-    setRole(demoRole);
-    setIdentifier(demoId);
-    setPassword(demoPass);
-    setError("");
-  };
-
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Left side visual */}
@@ -51,35 +44,21 @@ export default function LoginPage() {
             From Student Potential <br />
             <span className="text-indigo-400">to Placement Success</span>
           </h2>
-          <p className="text-lg text-indigo-200 mb-8">
-            The next-generation command center for managing campus placements with Role-Based Access Control.
+          <p className="text-lg text-indigo-200 mb-12">
+            The next-generation command center for managing campus placements, 
+            driven by artificial intelligence and seamless workflows.
           </p>
 
-          {/* Quick Demo Credentials Assistant */}
-          <div className="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-5 space-y-3">
-            <p className="text-xs font-bold uppercase tracking-wider text-indigo-200">Demo Role Credentials (Click to fill)</p>
-            <div className="grid grid-cols-3 gap-2">
-              <button 
-                onClick={() => fillDemo("Admin", "ADM001", "Admin@123")}
-                className="p-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-left transition-colors border border-white/10"
-              >
-                <span className="block font-bold text-xs text-purple-300">ADMIN</span>
-                <span className="block text-[11px] text-white/80">ADM001</span>
-              </button>
-              <button 
-                onClick={() => fillDemo("Manager", "MGR001", "Manager@123")}
-                className="p-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-left transition-colors border border-white/10"
-              >
-                <span className="block font-bold text-xs text-blue-300">MANAGER</span>
-                <span className="block text-[11px] text-white/80">MGR001</span>
-              </button>
-              <button 
-                onClick={() => fillDemo("Lead", "LED001", "Lead@123")}
-                className="p-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-left transition-colors border border-white/10"
-              >
-                <span className="block font-bold text-xs text-emerald-300">LEAD</span>
-                <span className="block text-[11px] text-white/80">LED001</span>
-              </button>
+          <div className="grid grid-cols-2 gap-6 w-full">
+            <div className="bg-white/5 p-4 rounded-xl border border-white/10 backdrop-blur-sm">
+              <GraduationCap className="w-6 h-6 mb-3 text-indigo-300" />
+              <h3 className="font-semibold text-lg">Student Intelligence</h3>
+              <p className="text-sm text-indigo-200/80 mt-1">Smart resume parsing and matching.</p>
+            </div>
+            <div className="bg-white/5 p-4 rounded-xl border border-white/10 backdrop-blur-sm">
+              <Briefcase className="w-6 h-6 mb-3 text-indigo-300" />
+              <h3 className="font-semibold text-lg">Company Pipeline</h3>
+              <p className="text-sm text-indigo-200/80 mt-1">Track recruiters from Cold to Hot.</p>
             </div>
           </div>
         </div>
@@ -133,7 +112,7 @@ export default function LoginPage() {
                 type="text"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="e.g. ADM001, MGR001, LED001"
+                placeholder="Enter your Employee ID"
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none"
                 required
               />
@@ -159,16 +138,6 @@ export default function LoginPage() {
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
-              </div>
-            </div>
-
-            {/* Quick Demo fill bar for mobile/small screens */}
-            <div className="lg:hidden p-3 bg-gray-100 dark:bg-gray-800/60 rounded-xl space-y-2 text-xs">
-              <span className="font-semibold text-gray-500">Quick Fill Demo:</span>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => fillDemo("Admin", "ADM001", "Admin@123")} className="px-2 py-1 bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 rounded">Admin</button>
-                <button type="button" onClick={() => fillDemo("Manager", "MGR001", "Manager@123")} className="px-2 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded">Manager</button>
-                <button type="button" onClick={() => fillDemo("Lead", "LED001", "Lead@123")} className="px-2 py-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 rounded">Lead</button>
               </div>
             </div>
 
