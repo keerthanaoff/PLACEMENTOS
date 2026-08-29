@@ -26,18 +26,27 @@ export const storageService = {
 export const initializeData = () => {
   if (!isBrowser) return;
   
-  if (!localStorage.getItem("pos_students")) storageService.set("pos_students", MOCK_STUDENTS.map(s => ({...s, isArchived: false})));
+  const existingStudents = storageService.get<any[]>("pos_students", []);
+  if (!existingStudents || existingStudents.length === 0) {
+    storageService.set("pos_students", MOCK_STUDENTS.map(s => ({...s, isArchived: false})));
+  } else {
+    // Sync any missing CSV records from MOCK_STUDENTS into localStorage
+    let updated = false;
+    MOCK_STUDENTS.forEach(mockS => {
+      if (!existingStudents.some(s => s.id === mockS.id || s.rollNumber === mockS.rollNumber)) {
+        existingStudents.push({ ...mockS, isArchived: false });
+        updated = true;
+      }
+    });
+    if (updated) {
+      storageService.set("pos_students", existingStudents);
+    }
+  }
+
   if (!localStorage.getItem("pos_companies")) storageService.set("pos_companies", MOCK_COMPANIES.map(c => ({...c, status: "COLD", approvalStatus: "APPROVED", isArchived: false})));
   if (!localStorage.getItem("pos_jds")) storageService.set("pos_jds", MOCK_JDS.map(j => ({...j, status: "ACTIVE", approvalStatus: "APPROVED"})));
   if (!localStorage.getItem("pos_drives")) storageService.set("pos_drives", MOCK_DRIVES);
   if (!localStorage.getItem("pos_recruiters")) storageService.set("pos_recruiters", MOCK_RECRUITERS);
-  
-  // Initialize new collections
-  if (!localStorage.getItem("pos_applications")) storageService.set("pos_applications", []);
-  if (!localStorage.getItem("pos_offers")) storageService.set("pos_offers", []);
-  if (!localStorage.getItem("pos_team")) storageService.set("pos_team", []);
-  if (!localStorage.getItem("pos_notifications")) storageService.set("pos_notifications", []);
-  if (!localStorage.getItem("pos_audit")) storageService.set("pos_audit", []);
 };
 
 // Data Services
