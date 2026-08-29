@@ -140,7 +140,6 @@ export const authService = {
         "/dashboard/companies",
         "/dashboard/jds",
         "/dashboard/recruiters",
-        "/dashboard/pipeline",
         "/dashboard/team",
         "/dashboard/approvals",
         "/dashboard/audit-logs",

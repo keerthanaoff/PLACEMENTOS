@@ -57,8 +57,8 @@ export default function LoginPage() {
             </div>
             <div className="bg-white/5 p-4 rounded-xl border border-white/10 backdrop-blur-sm">
               <Briefcase className="w-6 h-6 mb-3 text-indigo-300" />
-              <h3 className="font-semibold text-lg">Company Pipeline</h3>
-              <p className="text-sm text-indigo-200/80 mt-1">Track recruiters from Cold to Hot.</p>
+              <h3 className="font-semibold text-lg">Placement Analytics</h3>
+              <p className="text-sm text-indigo-200/80 mt-1">Real-time reports and downloads.</p>
             </div>
           </div>
         </div>
