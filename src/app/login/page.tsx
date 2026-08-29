@@ -45,7 +45,7 @@ export default function LoginPage() {
             <span className="text-indigo-400">to Placement Success</span>
           </h2>
           <p className="text-lg text-indigo-200 mb-12">
-            The next-generation command center for managing campus placements, 
+            The nxt-generation command center for managing campus placements, 
             driven by artificial intelligence and seamless workflows.
           </p>
 
