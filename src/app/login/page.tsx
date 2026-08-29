@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, GraduationCap, Briefcase, BrainCircuit } from "lucide-react";
+import { Eye, EyeOff, GraduationCap, Briefcase, ShieldCheck, UserCheck, KeyRound } from "lucide-react";
+import { authService } from "@/services/authService";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -16,27 +17,26 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
 
-    // DEVELOPMENT DEMO CREDENTIALS
-    if (identifier === "admin" && password === "admin123") {
-      // Use local storage for mock auth state
-      localStorage.setItem("userRole", "ADMIN");
+    const result = authService.login(role, identifier, password);
+
+    if (result.success) {
       router.push("/dashboard");
-    } else if (identifier === "manager" && password === "manager123") {
-      localStorage.setItem("userRole", "MANAGER");
-      router.push("/manager");
-    } else if (identifier === "lead" && password === "lead123") {
-      localStorage.setItem("userRole", "LEAD");
-      router.push("/lead");
     } else {
-      setError("Invalid credentials. Please use demo credentials.");
+      setError(result.error || "Invalid credentials.");
     }
+  };
+
+  const fillDemo = (demoRole: string, demoId: string, demoPass: string) => {
+    setRole(demoRole);
+    setIdentifier(demoId);
+    setPassword(demoPass);
+    setError("");
   };
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Left side visual */}
       <div className="hidden lg:flex lg:w-1/2 relative bg-indigo-900 overflow-hidden items-center justify-center">
-        {/* Abstract shapes / Gradient */}
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-indigo-900 to-black opacity-90"></div>
         <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
         
@@ -51,21 +51,35 @@ export default function LoginPage() {
             From Student Potential <br />
             <span className="text-indigo-400">to Placement Success</span>
           </h2>
-          <p className="text-lg text-indigo-200 mb-12">
-            The next-generation command center for managing campus placements, 
-            driven by artificial intelligence and seamless workflows.
+          <p className="text-lg text-indigo-200 mb-8">
+            The next-generation command center for managing campus placements with Role-Based Access Control.
           </p>
 
-          <div className="grid grid-cols-2 gap-6 w-full">
-            <div className="bg-white/5 p-4 rounded-xl border border-white/10 backdrop-blur-sm">
-              <GraduationCap className="w-6 h-6 mb-3 text-indigo-300" />
-              <h3 className="font-semibold text-lg">Student Intelligence</h3>
-              <p className="text-sm text-indigo-200/80 mt-1">Smart resume parsing and matching.</p>
-            </div>
-            <div className="bg-white/5 p-4 rounded-xl border border-white/10 backdrop-blur-sm">
-              <Briefcase className="w-6 h-6 mb-3 text-indigo-300" />
-              <h3 className="font-semibold text-lg">Company Pipeline</h3>
-              <p className="text-sm text-indigo-200/80 mt-1">Track recruiters from Cold to Hot.</p>
+          {/* Quick Demo Credentials Assistant */}
+          <div className="w-full bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-5 space-y-3">
+            <p className="text-xs font-bold uppercase tracking-wider text-indigo-200">Demo Role Credentials (Click to fill)</p>
+            <div className="grid grid-cols-3 gap-2">
+              <button 
+                onClick={() => fillDemo("Admin", "ADM001", "Admin@123")}
+                className="p-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-left transition-colors border border-white/10"
+              >
+                <span className="block font-bold text-xs text-purple-300">ADMIN</span>
+                <span className="block text-[11px] text-white/80">ADM001</span>
+              </button>
+              <button 
+                onClick={() => fillDemo("Manager", "MGR001", "Manager@123")}
+                className="p-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-left transition-colors border border-white/10"
+              >
+                <span className="block font-bold text-xs text-blue-300">MANAGER</span>
+                <span className="block text-[11px] text-white/80">MGR001</span>
+              </button>
+              <button 
+                onClick={() => fillDemo("Lead", "LED001", "Lead@123")}
+                className="p-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-left transition-colors border border-white/10"
+              >
+                <span className="block font-bold text-xs text-emerald-300">LEAD</span>
+                <span className="block text-[11px] text-white/80">LED001</span>
+              </button>
             </div>
           </div>
         </div>
@@ -82,29 +96,28 @@ export default function LoginPage() {
               <h1 className="text-2xl font-bold">PLACEMENTOS AI</h1>
             </div>
             <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-              Welcome back
+              Role Portal Sign In
             </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-              Sign in to your account to continue.
+              Select your authorization role and enter your Employee ID.
             </p>
           </div>
 
           {error && (
-            <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm font-medium border border-red-200 dark:border-red-800">
+            <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm font-medium border border-red-200 dark:border-red-800 animate-in fade-in duration-200">
               {error}
             </div>
           )}
 
-
           <form className="space-y-5" onSubmit={handleLogin}>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Role
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                Target Role *
               </label>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none"
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none font-medium"
               >
                 <option value="Admin">Admin</option>
                 <option value="Manager">Manager</option>
@@ -113,22 +126,22 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Registration Number / Employee ID
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                Employee ID *
               </label>
               <input
                 type="text"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="Enter your ID"
+                placeholder="e.g. ADM001, MGR001, LED001"
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Password
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                Password *
               </label>
               <div className="relative">
                 <input
@@ -149,22 +162,13 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600 dark:border-gray-700 dark:bg-gray-900"
-                />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                  Remember me
-                </label>
-              </div>
-              <div className="text-sm">
-                <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">
-                  Forgot password?
-                </a>
+            {/* Quick Demo fill bar for mobile/small screens */}
+            <div className="lg:hidden p-3 bg-gray-100 dark:bg-gray-800/60 rounded-xl space-y-2 text-xs">
+              <span className="font-semibold text-gray-500">Quick Fill Demo:</span>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => fillDemo("Admin", "ADM001", "Admin@123")} className="px-2 py-1 bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 rounded">Admin</button>
+                <button type="button" onClick={() => fillDemo("Manager", "MGR001", "Manager@123")} className="px-2 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 rounded">Manager</button>
+                <button type="button" onClick={() => fillDemo("Lead", "LED001", "Lead@123")} className="px-2 py-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 rounded">Lead</button>
               </div>
             </div>
 
@@ -172,7 +176,7 @@ export default function LoginPage() {
               type="submit"
               className="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all active:scale-[0.98]"
             >
-              Sign in to Dashboard
+              Sign in to Portal
             </button>
           </form>
         </div>
