@@ -99,7 +99,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       `}>
         <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center gap-2">
-            <BrainCircuit className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+            <img src="/logo.png" alt="PlacementOS Logo" className="w-8 h-8 object-contain rounded-md" />
             <span className="font-bold text-lg text-gray-900 dark:text-white">PLACEMENTOS</span>
           </div>
           <button className="lg:hidden text-gray-500" onClick={() => setIsSidebarOpen(false)}>
