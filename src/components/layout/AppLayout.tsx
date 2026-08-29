@@ -21,13 +21,9 @@ const allNavItems = [
   { name: "Placement Drives", href: "/dashboard/drives", icon: CalendarDays, roles: ["ADMIN", "MANAGER", "LEAD"] },
   { name: "JD Intelligence", href: "/dashboard/jds", icon: FileText, roles: ["ADMIN", "MANAGER"] },
   { name: "Recruiters", href: "/dashboard/recruiters", icon: UserSquare2, roles: ["ADMIN", "MANAGER"] },
-  { name: "Applications", href: "/dashboard/applications", icon: ClipboardList, roles: ["ADMIN", "MANAGER", "LEAD"] },
   { name: "Placement Analytics", href: "/dashboard/reports", icon: BarChart3, roles: ["ADMIN", "MANAGER", "LEAD"] },
   { name: "AI Resume", href: "/dashboard/ai-resume", icon: BrainCircuit, roles: ["ADMIN", "MANAGER", "LEAD"] },
-  { name: "Placement Team", href: "/dashboard/team", icon: Users2, roles: ["ADMIN"] },
   { name: "Approval Center", href: "/dashboard/approvals", icon: CheckCircle2, roles: ["ADMIN"] },
-  { name: "Notifications", href: "/dashboard/notifications", icon: Bell, roles: ["ADMIN", "MANAGER", "LEAD"] },
-  { name: "Audit Logs", href: "/dashboard/audit-logs", icon: ShieldAlert, roles: ["ADMIN"] },
   { name: "Settings", href: "/dashboard/settings", icon: Settings, roles: ["ADMIN"] },
 ];
 

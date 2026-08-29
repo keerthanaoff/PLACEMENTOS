@@ -52,7 +52,7 @@ export default function AdminDashboard() {
           </div>
           <div>
             <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Avg CTC</p>
-            <p className="text-lg font-bold text-gray-900 dark:text-white">8.5 LPA</p>
+            <p className="text-lg font-bold text-gray-900 dark:text-white">5.2 LPA</p>
           </div>
         </div>
       </div>
