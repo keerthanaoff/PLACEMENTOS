@@ -1,227 +1,296 @@
 "use client";
 
-import { use, useState } from "react";
+import { use } from "react";
 import Link from "next/link";
 import { 
   ArrowLeft, Mail, Phone, MapPin, Calendar, 
-  GitBranch, Network, FileText, ExternalLink, 
-  Award, Briefcase, BookOpen, BrainCircuit, CheckCircle2, Users
+  FileText, ExternalLink, Award, Briefcase, BookOpen, User, Globe, CheckCircle2, Video, Camera
 } from "lucide-react";
-
-import { studentService } from "@/services/storageService";
+import { studentService } from "@/services/studentService";
 
 export default function StudentProfilePage({ params }: { params: Promise<{ id: string }> }) {
-  // Mock unwrapping params using `use` (Next.js 15 pattern for params)
   const resolvedParams = use(params);
   
-  // Find student or fallback to a dummy if not found
-  const student = studentService.getById(resolvedParams.id) || {
-    ...studentService.getAll()[0],
-    name: "Not Found",
-    id: resolvedParams.id
+  const student = studentService.getStudentById(resolvedParams.id) || {
+    id: resolvedParams.id,
+    rollNumber: resolvedParams.id,
+    name: "Student Record",
+    department: "General",
+    gender: "N/A",
+    residenceType: "N/A",
+    sslc: "N/A",
+    hsc: "N/A",
+    ug: "N/A",
+    pg: "N/A",
+    email: "N/A",
+    mobile: "N/A",
+    github: "N/A",
+    linkedin: "N/A",
+    resumeLink: "N/A",
+    selfIntroLink: "N/A",
+    photoLink: "N/A",
+    portfolioLink: "N/A",
+    graduationYear: 2027,
+    skills: "N/A",
+    education: "N/A",
+    experience: "Fresher",
+    project: "N/A",
+    jobRole: "N/A",
+    location: "N/A",
+    placementStatus: "YET_TO_BE_PLACED" as const,
+    companyPlaced: "N/A",
+    roleOffered: "N/A",
+    packageCtc: "N/A",
+    resumeScore: "N/A",
+    archived: false
   };
 
+  const hasPersonal = student.name || student.rollNumber || student.gender || student.location || student.email || student.mobile;
+  const hasEducation = student.education || student.sslc || student.hsc || student.ug || student.pg || student.graduationYear;
+  const hasProfessional = student.jobRole || student.experience || student.skills || student.companyPlaced;
+  const hasProject = student.project && student.project !== "N/A";
+  const hasOnlineProfiles = student.github || student.linkedin || student.portfolioLink || student.resumeLink || student.selfIntroLink || student.photoLink;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-6xl mx-auto">
+      {/* Back Button & Header */}
       <div className="flex items-center gap-4">
         <button 
           onClick={() => window.history.back()}
-          className="p-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors"
+          className="p-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors shadow-sm"
         >
-          <ArrowLeft size={20} />
+          <ArrowLeft size={18} />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Student Profile</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Detailed intelligence and placement activity.</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <span>{student.name}</span>
+            <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+              {student.rollNumber || student.id}
+            </span>
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-0.5 text-xs font-medium">
+            {student.department} • Class of {student.graduationYear}
+          </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Basic Info & AI Score */}
-        <div className="space-y-6">
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm p-6 flex flex-col items-center text-center">
-            <div className="w-24 h-24 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-3xl text-indigo-600 dark:text-indigo-400 font-bold mb-4">
-              {student.name.charAt(0)}
-            </div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">{student.name}</h2>
-            <p className="text-sm font-medium text-gray-500">{student.rollNumber} • {student.department}</p>
-            
-            <div className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50">
-              {student.placementStatus}
-            </div>
+      {/* Top Placement Banner */}
+      <div className={`p-5 rounded-2xl border shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+        student.placementStatus === 'PLACED' 
+          ? 'bg-gradient-to-r from-emerald-500/10 via-emerald-600/5 to-teal-500/10 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-300'
+          : 'bg-gradient-to-r from-amber-500/10 via-amber-600/5 to-orange-500/10 border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-300'
+      }`}>
+        <div className="flex items-center gap-3">
+          <CheckCircle2 size={24} className={student.placementStatus === 'PLACED' ? 'text-emerald-600' : 'text-amber-600'} />
+          <div>
+            <p className="text-xs uppercase font-extrabold tracking-wider">Placement Status</p>
+            <h3 className="text-lg font-bold">{student.placementStatus}</h3>
+          </div>
+        </div>
 
-            <div className="w-full mt-6 pt-6 border-t border-gray-100 dark:border-gray-800 text-left space-y-3 text-sm">
-              <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400">
-                <Mail className="w-4 h-4" /> <span>{student.email}</span>
+        {student.placementStatus === 'PLACED' && (
+          <div className="flex flex-wrap items-center gap-4 text-xs font-semibold">
+            <div><span className="text-gray-500">Company:</span> <b className="text-gray-900 dark:text-white">{student.companyPlaced}</b></div>
+            <div><span className="text-gray-500">Role:</span> <b className="text-gray-900 dark:text-white">{student.roleOffered || student.jobRole}</b></div>
+            <div><span className="text-gray-500">Package:</span> <b className="text-emerald-600 dark:text-emerald-400">{student.packageCtc}</b></div>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* 1. PERSONAL INFORMATION */}
+        {hasPersonal && (
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm space-y-4">
+            <h2 className="text-sm font-extrabold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 dark:border-gray-800 pb-3">
+              <User size={16} />
+              Personal Information
+            </h2>
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <div>
+                <span className="text-gray-400 font-medium block">Full Name</span>
+                <span className="font-bold text-gray-900 dark:text-white">{student.name}</span>
               </div>
-              <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400">
-                <Phone className="w-4 h-4" /> <span>{student.mobile}</span>
+              <div>
+                <span className="text-gray-400 font-medium block">Roll Number / ID</span>
+                <span className="font-bold text-gray-900 dark:text-white">{student.rollNumber || student.id}</span>
               </div>
-              <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400">
-                <Calendar className="w-4 h-4" /> <span>Class of {student.yearOfGraduation}</span>
+              <div>
+                <span className="text-gray-400 font-medium block">Gender</span>
+                <span className="font-semibold text-gray-800 dark:text-gray-200">{student.gender || "N/A"}</span>
               </div>
-              <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400">
-                <MapPin className="w-4 h-4" /> <span>{student.studentType} ({student.residence || student.studentType})</span>
+              <div>
+                <span className="text-gray-400 font-medium block">Residence Type</span>
+                <span className="font-semibold text-gray-800 dark:text-gray-200">{student.residenceType || "N/A"}</span>
               </div>
-              <div className="flex items-center gap-3 text-gray-600 dark:text-gray-400 mt-2 border-t border-gray-100 dark:border-gray-800 pt-3">
-                <span className="font-semibold text-xs uppercase">Gender:</span> <span>{student.gender}</span>
+              <div>
+                <span className="text-gray-400 font-medium block">Location</span>
+                <span className="font-semibold text-gray-800 dark:text-gray-200">{student.location || "N/A"}</span>
+              </div>
+              <div>
+                <span className="text-gray-400 font-medium block">Mobile Number</span>
+                <span className="font-semibold text-gray-800 dark:text-gray-200">{student.mobile || "N/A"}</span>
+              </div>
+              <div className="col-span-2">
+                <span className="text-gray-400 font-medium block">Email Address</span>
+                <span className="font-semibold text-indigo-600 dark:text-indigo-400">{student.email || "N/A"}</span>
               </div>
             </div>
           </div>
+        )}
 
-          <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-xl shadow-sm p-6 text-white relative overflow-hidden">
-            <div className="absolute right-0 top-0 w-32 h-32 bg-white opacity-10 rounded-full -translate-y-1/2 translate-x-1/3 blur-xl"></div>
-            <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-4">
-                <BrainCircuit className="w-6 h-6 text-indigo-200" />
-                <h3 className="font-bold text-lg">AI Resume Match Score</h3>
+        {/* 2. EDUCATION */}
+        {hasEducation && (
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm space-y-4">
+            <h2 className="text-sm font-extrabold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 dark:border-gray-800 pb-3">
+              <BookOpen size={16} />
+              Education & Academics
+            </h2>
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <div>
+                <span className="text-gray-400 font-medium block">Degree / Course</span>
+                <span className="font-bold text-gray-900 dark:text-white">{student.education || student.department}</span>
               </div>
-              <div className="flex items-end gap-2">
-                <span className="text-5xl font-extrabold">{student.resumeScore}%</span>
-                <span className="text-indigo-200 mb-1">
-                  {student.resumeScore >= 80 ? 'Excellent' : student.resumeScore >= 70 ? 'Good' : 'Needs Improvement'}
-                </span>
+              <div>
+                <span className="text-gray-400 font-medium block">Graduation Year</span>
+                <span className="font-bold text-gray-900 dark:text-white">{student.graduationYear || 2027}</span>
               </div>
-              <p className="text-sm text-indigo-100 mt-4 leading-relaxed">
-                Resume strongly matches top-tier tech requirements. High proficiency in React and Node.js detected.
+              <div>
+                <span className="text-gray-400 font-medium block">SSLC (10th) %</span>
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400 font-mono">{student.sslc || "N/A"}</span>
+              </div>
+              <div>
+                <span className="text-gray-400 font-medium block">HSC (12th) %</span>
+                <span className="font-semibold text-emerald-600 dark:text-emerald-400 font-mono">{student.hsc || "N/A"}</span>
+              </div>
+              <div>
+                <span className="text-gray-400 font-medium block">UG Percentage / CGPA</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">{student.ug || "N/A"}</span>
+              </div>
+              <div>
+                <span className="text-gray-400 font-medium block">PG Percentage</span>
+                <span className="font-semibold text-gray-800 dark:text-gray-200 font-mono">{student.pg || "N/A"}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 3. PROFESSIONAL PROFILE */}
+        {hasProfessional && (
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm space-y-4">
+            <h2 className="text-sm font-extrabold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 dark:border-gray-800 pb-3">
+              <Briefcase size={16} />
+              Professional Profile
+            </h2>
+            <div className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="text-gray-400 font-medium block">Target / Placed Job Role</span>
+                  <span className="font-bold text-gray-900 dark:text-white">{student.jobRole || "N/A"}</span>
+                </div>
+                <div>
+                  <span className="text-gray-400 font-medium block">Experience Level</span>
+                  <span className="font-semibold text-gray-800 dark:text-gray-200">{student.experience || "Fresher"}</span>
+                </div>
+              </div>
+              <div>
+                <span className="text-gray-400 font-medium block mb-1">Technical Skills</span>
+                <p className="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl font-medium text-gray-800 dark:text-gray-200 border border-gray-100 dark:border-gray-700">
+                  {student.skills || "N/A"}
+                </p>
+              </div>
+              <div>
+                <span className="text-gray-400 font-medium block mb-1">Resume Match Score</span>
+                <span className="font-bold text-gray-500">{student.resumeScore || "N/A"}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 4. PROJECT */}
+        {hasProject && (
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm space-y-4">
+            <h2 className="text-sm font-extrabold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 dark:border-gray-800 pb-3">
+              <Award size={16} />
+              Featured Project
+            </h2>
+            <div className="text-xs space-y-2">
+              <p className="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl font-semibold text-gray-900 dark:text-white border border-gray-100 dark:border-gray-700">
+                {student.project}
               </p>
-              <button className="w-full mt-4 bg-white/20 hover:bg-white/30 text-white py-2 rounded-lg text-sm font-semibold transition-colors backdrop-blur-sm border border-white/20">
-                View Detailed AI Analysis
-              </button>
             </div>
           </div>
+        )}
 
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm p-6">
-            <h3 className="font-bold text-gray-900 dark:text-white mb-4">Links & Profiles</h3>
-            <div className="space-y-3">
-              <a href={`https://${student.linkedin}`} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 dark:border-gray-800 hover:border-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-colors group">
-                <div className="flex items-center gap-3">
-                  <Network className="w-5 h-5 text-blue-600" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">LinkedIn</span>
-                </div>
-                <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-blue-600" />
-              </a>
-              <a href={`https://${student.github}`} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 dark:border-gray-800 hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group">
-                <div className="flex items-center gap-3">
-                  <GitBranch className="w-5 h-5 text-gray-800 dark:text-white" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">GitHub</span>
-                </div>
-                <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-gray-800 dark:group-hover:text-white" />
-              </a>
-              <a href={student.resumeLink} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 dark:border-gray-800 hover:border-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-colors group">
-                <div className="flex items-center gap-3">
-                  <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Resume PDF</span>
-                </div>
-                <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400" />
-              </a>
-              {student.portfolio && (
-                <a href={student.portfolio} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 dark:border-gray-800 hover:border-emerald-200 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 transition-colors group">
-                  <div className="flex items-center gap-3">
-                    <Briefcase className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Portfolio</span>
+        {/* 5. ONLINE PROFILES & DOCUMENTS */}
+        {hasOnlineProfiles && (
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm space-y-4 md:col-span-2">
+            <h2 className="text-sm font-extrabold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 dark:border-gray-800 pb-3">
+              <Globe size={16} />
+              Online Profiles & Verified Documents
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+              {student.github && student.github !== "N/A" && (
+                <a href={student.github} target="_blank" rel="noopener noreferrer" className="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-between hover:border-indigo-500 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <Globe size={16} className="text-gray-700 dark:text-gray-300" />
+                    <span className="font-bold text-gray-800 dark:text-gray-200">GitHub Profile</span>
                   </div>
-                  <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400" />
+                  <ExternalLink size={14} className="text-gray-400" />
+                </a>
+              )}
+
+              {student.linkedin && student.linkedin !== "N/A" && (
+                <a href={student.linkedin} target="_blank" rel="noopener noreferrer" className="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-between hover:border-indigo-500 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <Globe size={16} className="text-blue-600" />
+                    <span className="font-bold text-gray-800 dark:text-gray-200">LinkedIn Profile</span>
+                  </div>
+                  <ExternalLink size={14} className="text-gray-400" />
+                </a>
+              )}
+
+              {student.resumeLink && student.resumeLink !== "N/A" && (
+                <a href={student.resumeLink} target="_blank" rel="noopener noreferrer" className="p-3 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-800 flex items-center justify-between hover:bg-indigo-100 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <FileText size={16} className="text-indigo-600" />
+                    <span className="font-bold text-indigo-700 dark:text-indigo-300">Resume Document</span>
+                  </div>
+                  <ExternalLink size={14} className="text-indigo-500" />
+                </a>
+              )}
+
+              {student.portfolioLink && student.portfolioLink !== "N/A" && (
+                <a href={student.portfolioLink} target="_blank" rel="noopener noreferrer" className="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-between hover:border-indigo-500 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <Globe size={16} className="text-emerald-600" />
+                    <span className="font-bold text-gray-800 dark:text-gray-200">Portfolio Website</span>
+                  </div>
+                  <ExternalLink size={14} className="text-gray-400" />
+                </a>
+              )}
+
+              {student.photoLink && student.photoLink !== "N/A" && (
+                <a href={student.photoLink} target="_blank" rel="noopener noreferrer" className="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-between hover:border-indigo-500 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <Camera size={16} className="text-purple-600" />
+                    <span className="font-bold text-gray-800 dark:text-gray-200">Student Photo</span>
+                  </div>
+                  <ExternalLink size={14} className="text-gray-400" />
+                </a>
+              )}
+
+              {student.selfIntroLink && student.selfIntroLink !== "N/A" && (
+                <a href={student.selfIntroLink} target="_blank" rel="noopener noreferrer" className="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-between hover:border-indigo-500 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <Video size={16} className="text-red-500" />
+                    <span className="font-bold text-gray-800 dark:text-gray-200">Self Introduction Video</span>
+                  </div>
+                  <ExternalLink size={14} className="text-gray-400" />
                 </a>
               )}
             </div>
           </div>
-        </div>
-
-        {/* Right Column: Academics & Activity */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <Briefcase className="w-4 h-4 text-gray-400" />
-                <h3 className="text-sm font-medium text-gray-500">Applications</h3>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{student.applications}</p>
-            </div>
-            <div className="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="w-4 h-4 text-gray-400" />
-                <h3 className="text-sm font-medium text-gray-500">Interviews</h3>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{student.interviews}</p>
-            </div>
-            <div className="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <Award className="w-4 h-4 text-emerald-500" />
-                <h3 className="text-sm font-medium text-gray-500">Offers</h3>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{student.offers}</p>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm overflow-hidden">
-            <div className="p-5 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              <h3 className="font-bold text-gray-900 dark:text-white">Academic Record</h3>
-            </div>
-            <div className="p-5 grid grid-cols-2 md:grid-cols-4 gap-6">
-              <div>
-                <p className="text-xs text-gray-500 uppercase font-semibold mb-1">UG</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">{student.ugPercentage}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase font-semibold mb-1">HSC Percentage</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">{student.hscPercentage}%</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase font-semibold mb-1">SSLC Percentage</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">{student.sslcPercentage}%</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase font-semibold mb-1">PG</p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">{student.pgPercentage || "N/A"}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm overflow-hidden">
-            <div className="p-5 border-b border-gray-100 dark:border-gray-800 flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              <h3 className="font-bold text-gray-900 dark:text-white">Recent Applications</h3>
-            </div>
-            <div className="p-0">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 font-medium">
-                  <tr>
-                    <th className="px-5 py-3">Company</th>
-                    <th className="px-5 py-3">Role</th>
-                    <th className="px-5 py-3">Date</th>
-                    <th className="px-5 py-3 text-right">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {[
-                    { company: "TechCorp Inc", role: "Frontend Developer", date: "Oct 12, 2025", status: "SHORTLISTED" },
-                    { company: "DataSystems", role: "Software Engineer", date: "Oct 05, 2025", status: "INTERVIEW" },
-                    { company: "CloudNet", role: "Cloud Architect", date: "Sep 28, 2025", status: "APPLIED" },
-                  ].map((app, i) => (
-                    <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                      <td className="px-5 py-4 font-medium text-gray-900 dark:text-white">{app.company}</td>
-                      <td className="px-5 py-4 text-gray-600 dark:text-gray-400">{app.role}</td>
-                      <td className="px-5 py-4 text-gray-500">{app.date}</td>
-                      <td className="px-5 py-4 text-right">
-                        <span className={`px-2 py-1 text-[10px] font-bold uppercase rounded-md border ${
-                          app.status === 'INTERVIEW' ? 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:border-purple-800' :
-                          app.status === 'SHORTLISTED' ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:border-amber-800' :
-                          'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300'
-                        }`}>
-                          {app.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          
-        </div>
+        )}
       </div>
     </div>
   );

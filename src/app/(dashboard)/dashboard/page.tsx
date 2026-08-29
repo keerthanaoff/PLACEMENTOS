@@ -6,7 +6,8 @@ import {
 } from "lucide-react";
 
 import { useEffect, useState } from "react";
-import { studentService, companyService, driveService } from "@/services/storageService";
+import { companyService, driveService } from "@/services/storageService";
+import { studentService } from "@/services/studentService";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
@@ -14,7 +15,7 @@ export default function AdminDashboard() {
   });
 
   useEffect(() => {
-    const students = studentService.getAll();
+    const students = studentService.getStudents();
     const companies = companyService.getAll();
     const drives = driveService.getAll();
 

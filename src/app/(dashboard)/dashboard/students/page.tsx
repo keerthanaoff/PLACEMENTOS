@@ -1,135 +1,139 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { 
-  Search, Plus, Filter, Eye, Edit, Archive,
-  GraduationCap, Download, Upload, SlidersHorizontal, X,
-  FileSpreadsheet, FileText, FileCode2, Trophy, ArrowUpDown, 
-  ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, RefreshCw, AlertTriangle, Check, ArrowRight
+  Users, Search, Filter, Upload, Download, Eye, X, 
+  CheckCircle2, AlertCircle, AlertTriangle, ArrowRight, 
+  ChevronLeft, ChevronRight, FileSpreadsheet, ExternalLink, Check, SlidersHorizontal 
 } from "lucide-react";
-
-import { studentService } from "@/services/storageService";
-import { authService } from "@/services/authService";
-import { usePathname } from "next/navigation";
-import { MOCK_STUDENTS } from "@/lib/mock-data";
+import { studentService } from "@/services/studentService";
+import { StudentRecord } from "@/lib/studentCsvData";
 import { parseStudentExcelOrCsv, ImportAnalysisResult, ParsedStudentRow } from "@/lib/excelImporter";
 
-export default function StudentsPage() {
-  const pathname = usePathname();
+export default function StudentIntelligencePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [students, setStudents] = useState<any[]>([]);
+  const [students, setStudents] = useState<StudentRecord[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [departmentFilter, setDepartmentFilter] = useState("All");
-  const [yearFilter, setYearFilter] = useState("All");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [sortBy, setSortBy] = useState<"DEFAULT" | "CGPA" | "AI_SCORE">("DEFAULT");
+  
+  // Filters State
+  const [departmentFilter, setDepartmentFilter] = useState("ALL");
+  const [genderFilter, setGenderFilter] = useState("ALL");
+  const [educationFilter, setEducationFilter] = useState("ALL");
+  const [jobRoleFilter, setJobRoleFilter] = useState("ALL");
+  const [locationFilter, setLocationFilter] = useState("ALL");
+  const [experienceFilter, setExperienceFilter] = useState("ALL");
+  const [gradYearFilter, setGradYearFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
 
-  // Pagination
+  // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const [pageSize, setPageSize] = useState(25);
 
-  // Import Preview Modal State
-  const [importAnalysis, setImportAnalysis] = useState<ImportAnalysisResult | null>(null);
+  // Column Visibility State
+  const [visibleColumns, setVisibleColumns] = useState<Record<string, boolean>>({
+    photo: true,
+    sno: true,
+    roll: true,
+    name: true,
+    dept: true,
+    gender: true,
+    education: true,
+    experience: true,
+    location: true,
+    jobRole: true,
+    skills: true,
+    resumeScore: true,
+    status: true,
+    actions: true
+  });
+  const [showColumnToggle, setShowColumnToggle] = useState(false);
+
+  // Import Modal State
+  const [importAnalysis, setImportAnalysis] = useState<ImportAnalysisResult<any> | null>(null);
   const [duplicateAction, setDuplicateAction] = useState<"SKIP" | "OVERWRITE">("SKIP");
   const [previewTab, setPreviewTab] = useState<"ALL" | "VALID" | "DUPLICATE" | "INVALID">("ALL");
+  const [successMessage, setSuccessMessage] = useState("");
 
-  // Notification State
-  const [notification, setNotification] = useState<{ type: "SUCCESS" | "ERROR"; message: string } | null>(null);
-  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
-
-  // Manual Student Add/Edit Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<"ADD" | "EDIT">("ADD");
-  const [editingStudent, setEditingStudent] = useState<any>(null);
-
-  const loadStudents = () => {
-    const loaded = studentService.getAll().filter(s => !s.isArchived);
-    setStudents(loaded);
+  const loadData = () => {
+    const data = studentService.getStudents();
+    setStudents(data);
   };
 
   useEffect(() => {
-    loadStudents();
+    loadData();
   }, []);
 
-  const departments = Array.from(new Set(students.map(s => s.department).filter(Boolean)));
-  const years = Array.from(new Set(students.map(s => s.yearOfGraduation || s.graduation_year || 2026).filter(Boolean))).sort();
-
-  // Filtered & Sorted Students
+  // Filtered & Searched Students
   const filteredStudents = useMemo(() => {
-    let result = students.filter(student => {
-      const matchSearch = 
-        student.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        student.rollNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.skills?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchDept = departmentFilter === "All" || student.department === departmentFilter;
-      const matchYear = yearFilter === "All" || String(student.yearOfGraduation || student.graduation_year) === String(yearFilter);
-      const matchStatus = statusFilter === "All" || student.placementStatus === statusFilter;
+    let list = students;
 
-      return matchSearch && matchDept && matchYear && matchStatus;
-    });
-
-    if (sortBy === "CGPA") {
-      result.sort((a, b) => {
-        const valA = parseFloat(a.ugPercentageNum || a.ugPercentage || a.ug || 0);
-        const valB = parseFloat(b.ugPercentageNum || b.ugPercentage || b.ug || 0);
-        return valB - valA;
-      });
-    } else if (sortBy === "AI_SCORE") {
-      result.sort((a, b) => (b.resumeScore || 0) - (a.resumeScore || 0));
+    // Apply Search
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase().trim();
+      list = list.filter(s => 
+        s.rollNumber?.toLowerCase().includes(q) ||
+        s.id?.toLowerCase().includes(q) ||
+        s.name?.toLowerCase().includes(q) ||
+        s.department?.toLowerCase().includes(q) ||
+        s.skills?.toLowerCase().includes(q) ||
+        s.education?.toLowerCase().includes(q) ||
+        s.jobRole?.toLowerCase().includes(q) ||
+        s.location?.toLowerCase().includes(q) ||
+        s.email?.toLowerCase().includes(q)
+      );
     }
 
-    return result;
-  }, [students, searchTerm, departmentFilter, yearFilter, statusFilter, sortBy]);
+    // Apply Multi-Filters
+    if (departmentFilter !== "ALL") list = list.filter(s => s.department === departmentFilter);
+    if (genderFilter !== "ALL") list = list.filter(s => s.gender === genderFilter);
+    if (educationFilter !== "ALL") list = list.filter(s => s.education?.includes(educationFilter));
+    if (jobRoleFilter !== "ALL") list = list.filter(s => s.jobRole?.toLowerCase().includes(jobRoleFilter.toLowerCase()));
+    if (locationFilter !== "ALL") list = list.filter(s => s.location?.toLowerCase().includes(locationFilter.toLowerCase()));
+    if (experienceFilter !== "ALL") list = list.filter(s => s.experience === experienceFilter);
+    if (gradYearFilter !== "ALL") list = list.filter(s => String(s.graduationYear) === String(gradYearFilter));
+    if (statusFilter !== "ALL") list = list.filter(s => s.placementStatus === statusFilter);
+
+    return list;
+  }, [
+    students, searchTerm, departmentFilter, genderFilter, educationFilter, 
+    jobRoleFilter, locationFilter, experienceFilter, gradYearFilter, statusFilter
+  ]);
+
+  // Reset Page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    searchTerm, departmentFilter, genderFilter, educationFilter, 
+    jobRoleFilter, locationFilter, experienceFilter, gradYearFilter, statusFilter, pageSize
+  ]);
 
   // Paginated Students
-  const totalPages = Math.ceil(filteredStudents.length / itemsPerPage) || 1;
+  const totalPages = Math.ceil(filteredStudents.length / pageSize) || 1;
   const paginatedStudents = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    return filteredStudents.slice(start, start + itemsPerPage);
-  }, [filteredStudents, currentPage]);
+    const start = (currentPage - 1) * pageSize;
+    return filteredStudents.slice(start, start + pageSize);
+  }, [filteredStudents, currentPage, pageSize]);
 
-  // Top 5 AI Leaderboard Students
-  const topRankedStudents = useMemo(() => {
-    return [...students]
-      .sort((a, b) => (b.resumeScore || 0) - (a.resumeScore || 0))
-      .slice(0, 5);
-  }, [students]);
+  // Unique Filter Options
+  const departmentOptions = useMemo(() => Array.from(new Set(students.map(s => s.department).filter(Boolean))), [students]);
+  const jobRoleOptions = useMemo(() => Array.from(new Set(students.map(s => s.jobRole).filter(Boolean))), [students]);
 
-  // Excel/CSV Import Click Handler
-  const handleImportClick = () => {
-    const user = authService.getCurrentUser();
-    if (!user) {
-      setNotification({ type: "ERROR", message: "Authorization required to import students." });
-      return;
-    }
-    fileInputRef.current?.click();
-  };
-
-  // File Upload Handler using parseStudentExcelOrCsv
+  // File Upload Handler
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    const fileName = file.name;
-    const lowerName = fileName.toLowerCase();
-
-    if (!lowerName.endsWith(".xlsx") && !lowerName.endsWith(".xls") && !lowerName.endsWith(".csv")) {
-      setNotification({ type: "ERROR", message: "Invalid file format. Please upload an Excel (.xlsx, .xls) or CSV file." });
-      return;
-    }
 
     const reader = new FileReader();
     reader.onload = (evt) => {
       try {
         const bstr = evt.target?.result as string;
-        const analysis = parseStudentExcelOrCsv(bstr, fileName);
+        const analysis = parseStudentExcelOrCsv(bstr, file.name);
 
         if (analysis.totalRows === 0) {
-          setNotification({ type: "ERROR", message: "Uploaded Excel/CSV file is empty." });
+          alert("Uploaded file is empty.");
           return;
         }
 
@@ -137,7 +141,7 @@ export default function StudentsPage() {
         setPreviewTab("ALL");
         setDuplicateAction("SKIP");
       } catch (err: any) {
-        setNotification({ type: "ERROR", message: err?.message || "Failed to parse file." });
+        alert(err?.message || "Failed to parse CSV/Excel file.");
       }
     };
 
@@ -145,168 +149,65 @@ export default function StudentsPage() {
     if (e.target) e.target.value = "";
   };
 
-  // Commit Import Action (Save Valid/Duplicate Records)
+  // Commit Import
   const executeImportCommit = () => {
     if (!importAnalysis) return;
 
-    let rowsToImport: ParsedStudentRow[] = [];
-    if (duplicateAction === "OVERWRITE") {
-      rowsToImport = [...importAnalysis.validRows, ...importAnalysis.duplicateRows];
-    } else {
-      rowsToImport = importAnalysis.validRows;
-    }
+    const rowsToImport = duplicateAction === "OVERWRITE"
+      ? [...importAnalysis.validRows, ...importAnalysis.duplicateRows]
+      : importAnalysis.validRows;
 
     if (rowsToImport.length === 0) {
-      setNotification({ type: "ERROR", message: "No valid records selected to import." });
+      alert("No valid records to import.");
       setImportAnalysis(null);
       return;
     }
 
-    let insertedCount = 0;
-    let updatedCount = 0;
-
-    const existingStudents = studentService.getAll();
-
-    rowsToImport.forEach(row => {
-      const isExisting = existingStudents.some(s => 
-        (s.rollNumber || s.id || "").toLowerCase().trim() === row.studentId.toLowerCase().trim()
-      );
-
-      const studentObject = {
-        id: row.studentId,
-        rollNumber: row.studentId,
-        name: row.name,
-        email: row.email,
-        mobile: row.phone,
-        department: row.department,
-        yearOfGraduation: row.year,
-        ugPercentage: row.cgpa,
-        ugPercentageNum: parseFloat(row.cgpa) || 75,
-        skills: row.skills,
-        resumeLink: row.resumeLink,
-        placementStatus: row.placementStatus,
-        resumeScore: Math.floor(Math.random() * (95 - 70 + 1)) + 70,
-        isArchived: false
+    const mappedRecords: StudentRecord[] = rowsToImport.map((r: any) => {
+      const d = r.data || r;
+      return {
+        id: d.rollNumber || d.studentId || d.id || `S_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        rollNumber: d.rollNumber || d.studentId || d.id || "N/A",
+        name: d.name || "Unknown",
+        department: d.department || "General",
+        gender: d.gender || "N/A",
+        residenceType: d.residenceType || "N/A",
+        sslc: d.sslc || "N/A",
+        hsc: d.hsc || "N/A",
+        ug: d.cgpa || d.ug || "N/A",
+        pg: d.pg || "N/A",
+        email: d.email || "N/A",
+        mobile: d.phone || d.mobile || "N/A",
+        github: d.github || "N/A",
+        linkedin: d.linkedin || "N/A",
+        resumeLink: d.resumeLink || d.resume || "N/A",
+        selfIntroLink: d.selfIntroLink || "N/A",
+        photoLink: d.photoLink || "N/A",
+        portfolioLink: d.portfolioLink || "N/A",
+        graduationYear: d.year ? parseInt(String(d.year)) : 2027,
+        skills: d.skills || "N/A",
+        education: d.education || d.department || "N/A",
+        experience: d.experience || "Fresher",
+        project: d.project || "N/A",
+        jobRole: d.jobRole || "N/A",
+        location: d.location || "N/A",
+        placementStatus: (d.placementStatus as any) || "YET_TO_BE_PLACED",
+        companyPlaced: d.companyPlaced || "N/A",
+        roleOffered: d.roleOffered || "N/A",
+        packageCtc: d.packageCtc || "N/A",
+        resumeScore: "N/A",
+        archived: false
       };
-
-      studentService.save(studentObject);
-      if (isExisting) updatedCount++;
-      else insertedCount++;
     });
 
-    loadStudents();
+    const summary = studentService.importStudents(mappedRecords);
+    loadData();
     setImportAnalysis(null);
 
-    const totalImported = insertedCount + updatedCount;
-    setNotification({
-      type: "SUCCESS",
-      message: `${totalImported} students imported successfully.`
-    });
+    setSuccessMessage(`CSV Import Complete: ${summary.imported} students imported successfully. ${summary.duplicates} duplicate records skipped.`);
+    setTimeout(() => setSuccessMessage(""), 5000);
   };
 
-  // Export Word (.docx) Handler
-  const exportToWord = () => {
-    const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-    const dataToExport = filteredStudents;
-
-    let tableRows = dataToExport.map(s => `
-      <tr>
-        <td style="border: 1px solid #ddd; padding: 8px;">${s.rollNumber || s.id}</td>
-        <td style="border: 1px solid #ddd; padding: 8px;"><b>${s.name}</b></td>
-        <td style="border: 1px solid #ddd; padding: 8px;">${s.department}</td>
-        <td style="border: 1px solid #ddd; padding: 8px;">${s.yearOfGraduation || 2026}</td>
-        <td style="border: 1px solid #ddd; padding: 8px;">${s.ugPercentageNum || s.ugPercentage}%</td>
-        <td style="border: 1px solid #ddd; padding: 8px;">${s.resumeScore}%</td>
-        <td style="border: 1px solid #ddd; padding: 8px;">${s.placementStatus || "UNPLACED"}</td>
-        <td style="border: 1px solid #ddd; padding: 8px;">${s.email || "N/A"}</td>
-      </tr>
-    `).join("");
-
-    const htmlContent = `
-      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-      <head><meta charset='utf-8'><title>PlacementOS Student Report</title></head>
-      <body style="font-family: Arial, sans-serif; padding: 20px;">
-        <h1 style="color: #4f46e5; margin-bottom: 5px;">PLACEMENTOS AI — STUDENT INTELLIGENCE REPORT</h1>
-        <p style="color: #666; font-size: 14px;"><b>Report Date:</b> ${dateStr} | <b>Total Records:</b> ${dataToExport.length}</p>
-        <p style="color: #666; font-size: 12px;"><b>Filters Applied:</b> Department: ${departmentFilter} | Year: ${yearFilter} | Status: ${statusFilter}</p>
-        <hr style="border: 1px solid #eee; margin-bottom: 20px;" />
-        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-          <thead>
-            <tr style="background-color: #4f46e5; color: white;">
-              <th style="border: 1px solid #ddd; padding: 10px; text-align: left;">Student ID</th>
-              <th style="border: 1px solid #ddd; padding: 10px; text-align: left;">Student Name</th>
-              <th style="border: 1px solid #ddd; padding: 10px; text-align: left;">Department</th>
-              <th style="border: 1px solid #ddd; padding: 10px; text-align: left;">Year</th>
-              <th style="border: 1px solid #ddd; padding: 10px; text-align: left;">CGPA</th>
-              <th style="border: 1px solid #ddd; padding: 10px; text-align: left;">AI Score</th>
-              <th style="border: 1px solid #ddd; padding: 10px; text-align: left;">Status</th>
-              <th style="border: 1px solid #ddd; padding: 10px; text-align: left;">Email</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tableRows}
-          </tbody>
-        </table>
-      </body>
-      </html>
-    `;
-
-    const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `PlacementOS_Student_Report_${Date.now()}.docx`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setIsExportMenuOpen(false);
-  };
-
-  // Export PDF Handler
-  const exportToPDF = () => {
-    setIsExportMenuOpen(false);
-    window.print();
-  };
-
-  // Manual Student Add/Edit Handlers
-  const openAddModal = () => {
-    setModalMode("ADD");
-    setEditingStudent({
-      name: "", rollNumber: "", department: "CSE", gender: "Male", studentType: "Day Scholar",
-      sslcPercentage: "85", hscPercentage: "85", ugPercentage: "80", pgPercentage: "",
-      email: "", mobile: "", yearOfGraduation: 2026,
-      github: "", linkedin: "", portfolio: "", resumeLink: "", selfIntroLink: "", photoUrl: "",
-      placementStatus: "UNPLACED", resumeScore: Math.floor(Math.random() * (95 - 65 + 1)) + 65
-    });
-    setIsModalOpen(true);
-  };
-
-  const openEditModal = (student: any) => {
-    setModalMode("EDIT");
-    setEditingStudent({ ...student });
-    setIsModalOpen(true);
-  };
-
-  const handleModalSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    studentService.save(editingStudent);
-    loadStudents();
-    setIsModalOpen(false);
-    setNotification({ type: "SUCCESS", message: `Student "${editingStudent.name}" saved successfully!` });
-  };
-
-  const handleArchive = (id: string) => {
-    if (window.confirm("Are you sure you want to archive/delete this student?")) {
-      const student = studentService.getById(id);
-      if (student) {
-        student.isArchived = true;
-        studentService.save(student);
-        loadStudents();
-      }
-    }
-  };
-
-  // Derived Rows for Preview Modal
   const previewDisplayRows = useMemo(() => {
     if (!importAnalysis) return [];
     if (previewTab === "VALID") return importAnalysis.validRows;
@@ -315,22 +216,14 @@ export default function StudentsPage() {
     return importAnalysis.allRows;
   }, [importAnalysis, previewTab]);
 
-  const importTargetCount = useMemo(() => {
-    if (!importAnalysis) return 0;
-    if (duplicateAction === "OVERWRITE") {
-      return importAnalysis.validRows.length + importAnalysis.duplicateRows.length;
-    }
-    return importAnalysis.validRows.length;
-  }, [importAnalysis, duplicateAction]);
-
   return (
     <div className="space-y-6">
-      {/* Hidden File Input for Excel/CSV Import */}
+      {/* Hidden File Input */}
       <input 
         type="file" 
         ref={fileInputRef} 
         onChange={handleFileUpload} 
-        accept=".xlsx, .xls, .csv" 
+        accept=".csv, .xlsx, .xls" 
         className="hidden" 
       />
 
@@ -338,250 +231,233 @@ export default function StudentsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <GraduationCap className="text-indigo-600 dark:text-indigo-400" /> 
+            <Users className="text-indigo-600 dark:text-indigo-400" />
             Student Intelligence
           </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Manage, rank, import, and export student placement profiles.</p>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">
+            Complete candidate profiles, academic records, and recruitment tracking ({students.length} Total Students).
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Import Button */}
-          <button 
-            onClick={handleImportClick}
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-md"
+        <div className="flex items-center gap-3">
+          {/* Column Toggle */}
+          <button
+            onClick={() => setShowColumnToggle(!showColumnToggle)}
+            className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-3 py-2 rounded-xl text-xs font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
           >
-            <Upload size={16} />
-            <span>Import Students</span>
+            <SlidersHorizontal size={14} />
+            <span>Columns</span>
           </button>
 
-          {/* Export Dropdown */}
-          <div className="relative">
-            <button 
-              onClick={() => setIsExportMenuOpen(!isExportMenuOpen)}
-              className="flex items-center gap-2 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-xl text-sm font-semibold border border-gray-200 dark:border-gray-700 transition-colors shadow-sm"
-            >
-              <Download size={16} />
-              <span>Export</span>
-            </button>
-            {isExportMenuOpen && (
-              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in duration-150">
-                <button 
-                  onClick={exportToPDF}
-                  className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors text-left"
-                >
-                  <FileText size={16} className="text-red-500" />
-                  <span>Download PDF</span>
-                </button>
-                <button 
-                  onClick={exportToWord}
-                  className="flex items-center gap-2.5 w-full px-4 py-2.5 text-xs font-semibold text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors text-left border-t border-gray-100 dark:border-gray-800"
-                >
-                  <FileCode2 size={16} className="text-blue-500" />
-                  <span>Download Word (.docx)</span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Add Student Button */}
-          <button 
-            onClick={openAddModal}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-md"
+          {/* Import Students Button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md transition-all active:scale-95"
           >
-            <Plus size={16} />
-            <span>Add Student</span>
+            <Upload size={14} />
+            <span>+ Import Students</span>
           </button>
         </div>
       </div>
 
-      {/* Notification Toast */}
-      {notification && (
-        <div className={`p-4 rounded-xl flex items-center justify-between border shadow-sm animate-in fade-in duration-200 ${
-          notification.type === "SUCCESS" ? "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800" : "bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800"
-        }`}>
-          <div className="flex items-center gap-3">
-            {notification.type === "SUCCESS" ? <CheckCircle2 size={20} className="text-emerald-600 shrink-0" /> : <AlertCircle size={20} className="text-red-600 shrink-0" />}
-            <span className="text-sm font-medium">{notification.message}</span>
-          </div>
-          <button onClick={() => setNotification(null)} className="text-gray-400 hover:text-gray-600">
-            <X size={18} />
-          </button>
+      {/* Success Banner */}
+      {successMessage && (
+        <div className="p-4 bg-emerald-50 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center gap-3 animate-in fade-in duration-200">
+          <CheckCircle2 size={18} />
+          <span className="text-sm font-semibold">{successMessage}</span>
         </div>
       )}
 
-      {/* AI Leaderboard Banner ("Top Students") */}
-      <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-900 text-white rounded-2xl p-6 shadow-md relative overflow-hidden">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Trophy className="text-amber-400 w-6 h-6" />
-            <h2 className="text-lg font-bold">Top AI-Ranked Candidates</h2>
+      {/* Column Visibility Selector Panel */}
+      {showColumnToggle && (
+        <div className="p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm space-y-2">
+          <p className="text-xs font-bold uppercase text-gray-500 tracking-wider">Toggle Table Columns</p>
+          <div className="flex flex-wrap gap-3">
+            {Object.keys(visibleColumns).map(col => (
+              <label key={col} className="flex items-center gap-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 capitalize cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={visibleColumns[col]}
+                  onChange={() => setVisibleColumns(prev => ({ ...prev, [col]: !prev[col] }))}
+                  className="rounded text-indigo-600 focus:ring-indigo-500"
+                />
+                <span>{col.replace(/([A-Z])/g, ' $1')}</span>
+              </label>
+            ))}
           </div>
-          <span className="text-xs bg-white/10 px-3 py-1 rounded-full text-indigo-200 font-medium">Real-Time AI Resume Ranking</span>
         </div>
+      )}
 
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-          {topRankedStudents.map((st, idx) => (
-            <div key={`top-${st.id || st.rollNumber || idx}-${idx}`} className="bg-white/10 backdrop-blur-md border border-white/15 p-3 rounded-xl flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className={`w-6 h-6 rounded-full flex items-center justify-center font-extrabold text-xs ${
-                  idx === 0 ? "bg-amber-400 text-gray-900" : idx === 1 ? "bg-gray-300 text-gray-900" : idx === 2 ? "bg-amber-700 text-white" : "bg-white/20 text-white"
-                }`}>
-                  {idx + 1}
-                </span>
-                <span className="text-xs font-bold text-emerald-300">{st.resumeScore}% AI</span>
-              </div>
-              <div className="mt-2">
-                <p className="font-bold text-sm truncate">{st.name}</p>
-                <p className="text-[11px] text-indigo-200 truncate">{st.department} • CGPA {st.ugPercentageNum || st.ugPercentage}%</p>
-              </div>
+      {/* Search & Filter Controls */}
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 shadow-sm space-y-4">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="relative w-full md:w-96">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by Roll No, Name, Dept, Skill, Role, Email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 text-gray-900 dark:text-white"
+            />
+          </div>
+
+          <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+            <button
+              onClick={() => setShowFilterPanel(!showFilterPanel)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold border transition-colors ${
+                showFilterPanel ? "bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-900/40 dark:text-indigo-300" : "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700"
+              }`}
+            >
+              <Filter size={14} />
+              <span>Filters</span>
+            </button>
+
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              <span>Show:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="px-2 py-1 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white font-bold"
+              >
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Filters and Controls */}
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
-        {/* Search */}
-        <div className="relative w-full md:w-80">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-4 w-4 text-gray-400" />
           </div>
-          <input
-            type="text"
-            placeholder="Search by name, ID, skills..."
-            value={searchTerm}
-            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
-            className="block w-full pl-10 pr-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg leading-5 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm transition-colors"
-          />
         </div>
-        
-        {/* Filter Dropdowns */}
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          <select 
-            value={departmentFilter}
-            onChange={(e) => { setDepartmentFilter(e.target.value); setCurrentPage(1); }}
-            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          >
-            <option value="All">All Departments</option>
-            {departments.map(dept => <option key={dept as string} value={dept as string}>{dept as string}</option>)}
-          </select>
 
-          <select 
-            value={yearFilter}
-            onChange={(e) => { setYearFilter(e.target.value); setCurrentPage(1); }}
-            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          >
-            <option value="All">All Graduation Years</option>
-            {years.map(yr => <option key={String(yr)} value={String(yr)}>{String(yr)}</option>)}
-          </select>
+        {/* Expandable Multi-Filter Panel */}
+        {showFilterPanel && (
+          <div className="pt-4 border-t border-gray-100 dark:border-gray-800 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div>
+              <label className="block font-bold text-gray-500 uppercase mb-1">Department</label>
+              <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)} className="w-full px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white">
+                <option value="ALL">All Departments</option>
+                {departmentOptions.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
 
-          <select 
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          >
-            <option value="All">All Statuses</option>
-            <option value="UNPLACED">Unplaced</option>
-            <option value="SHORTLISTED">Shortlisted</option>
-            <option value="PLACED">Placed</option>
-          </select>
+            <div>
+              <label className="block font-bold text-gray-500 uppercase mb-1">Gender</label>
+              <select value={genderFilter} onChange={e => setGenderFilter(e.target.value)} className="w-full px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white">
+                <option value="ALL">All Genders</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+            </div>
 
-          <select 
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
-            className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          >
-            <option value="DEFAULT">Sort By: Default</option>
-            <option value="CGPA">Sort By: Highest CGPA</option>
-            <option value="AI_SCORE">Sort By: Highest AI Score</option>
-          </select>
-        </div>
+            <div>
+              <label className="block font-bold text-gray-500 uppercase mb-1">Job Role</label>
+              <select value={jobRoleFilter} onChange={e => setJobRoleFilter(e.target.value)} className="w-full px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white">
+                <option value="ALL">All Roles</option>
+                {jobRoleOptions.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-bold text-gray-500 uppercase mb-1">Placement Status</label>
+              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-full px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white">
+                <option value="ALL">All Statuses</option>
+                <option value="PLACED">PLACED</option>
+                <option value="YET_TO_BE_PLACED">YET_TO_BE_PLACED</option>
+              </select>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Main Student Intelligence Table */}
+      {/* Main Student Intelligence Table with Horizontal Scroll */}
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 font-medium border-b border-gray-200 dark:border-gray-800">
+          <table className="w-full text-xs text-left">
+            <thead className="bg-gray-50 dark:bg-gray-800/60 text-gray-500 dark:text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 uppercase tracking-wider">
               <tr>
-                <th className="px-6 py-4">Student ID</th>
-                <th className="px-6 py-4">Student Name</th>
-                <th className="px-6 py-4">Department</th>
-                <th className="px-6 py-4 text-center">Year</th>
-                <th className="px-6 py-4 text-center">CGPA</th>
-                <th className="px-6 py-4 text-center">AI Score</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                {visibleColumns.photo && <th className="px-4 py-3">Photo</th>}
+                {visibleColumns.sno && <th className="px-4 py-3">S.No</th>}
+                {visibleColumns.roll && <th className="px-4 py-3">Roll Number</th>}
+                {visibleColumns.name && <th className="px-4 py-3">Name</th>}
+                {visibleColumns.dept && <th className="px-4 py-3">Department</th>}
+                {visibleColumns.gender && <th className="px-4 py-3">Gender</th>}
+                {visibleColumns.education && <th className="px-4 py-3">Education</th>}
+                {visibleColumns.experience && <th className="px-4 py-3">Experience</th>}
+                {visibleColumns.location && <th className="px-4 py-3">Location</th>}
+                {visibleColumns.jobRole && <th className="px-4 py-3">Job Role</th>}
+                {visibleColumns.skills && <th className="px-4 py-3">Skills</th>}
+                {visibleColumns.resumeScore && <th className="px-4 py-3">Resume Score</th>}
+                {visibleColumns.status && <th className="px-4 py-3">Placement Status</th>}
+                {visibleColumns.actions && <th className="px-4 py-3 text-right">Actions</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-800 text-gray-700 dark:text-gray-300">
-              {paginatedStudents.map((student, idx) => (
-                <tr key={`student-${student.id || student.rollNumber || idx}-${idx}`} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                  <td className="px-6 py-4 font-semibold text-gray-500 dark:text-gray-400">
-                    {student.rollNumber || student.id}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold shrink-0">
-                        {student.name.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900 dark:text-white">{student.name}</p>
-                        <p className="text-xs text-gray-400">{student.email}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 font-medium">{student.department}</td>
-                  <td className="px-6 py-4 text-center text-gray-600 dark:text-gray-400 font-medium">
-                    {student.yearOfGraduation || student.graduation_year || 2026}
-                  </td>
-                  <td className="px-6 py-4 text-center font-bold">
-                    {student.ugPercentageNum || student.ugPercentage || student.ug || "75"}%
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className={`font-bold px-2 py-0.5 rounded text-xs ${
-                      student.resumeScore >= 80 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' :
-                      student.resumeScore >= 70 ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300' :
-                      'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-                    }`}>
-                      {student.resumeScore}%
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
-                      student.placementStatus === 'PLACED' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800/50' :
-                      student.placementStatus === 'SHORTLISTED' ? 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50' :
-                      'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700'
-                    }`}>
-                      {student.placementStatus || "UNPLACED"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2">
-                      <Link href={`${pathname}/${student.id}`} className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors">
-                        <Eye size={18} />
-                      </Link>
-                      <button 
-                        onClick={() => openEditModal(student)}
-                        className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
-                      >
-                        <Edit size={18} />
-                      </button>
-                      <button 
-                        onClick={() => handleArchive(student.id)}
-                        className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                      >
-                        <Archive size={18} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              
-              {paginatedStudents.length === 0 && (
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-800 text-gray-700 dark:text-gray-300 font-medium">
+              {paginatedStudents.map((student, idx) => {
+                const globalIndex = (currentPage - 1) * pageSize + idx + 1;
+                return (
+                  <tr key={`st-${student.id || student.rollNumber}-${idx}`} className="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
+                    {visibleColumns.photo && (
+                      <td className="px-4 py-2.5">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden shadow-sm">
+                          {student.photoLink && student.photoLink.startsWith("http") ? (
+                            <img src={student.photoLink} alt={student.name} className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                          ) : (
+                            student.name?.charAt(0) || "S"
+                          )}
+                        </div>
+                      </td>
+                    )}
+                    {visibleColumns.sno && <td className="px-4 py-2.5 font-bold text-gray-400">{globalIndex}</td>}
+                    {visibleColumns.roll && <td className="px-4 py-2.5 font-bold text-indigo-600 dark:text-indigo-400">{student.rollNumber || student.id}</td>}
+                    {visibleColumns.name && (
+                      <td className="px-4 py-2.5 font-bold text-gray-900 dark:text-white">
+                        <Link href={`/dashboard/students/${encodeURIComponent(student.id || student.rollNumber)}`} className="hover:underline hover:text-indigo-600">
+                          {student.name}
+                        </Link>
+                      </td>
+                    )}
+                    {visibleColumns.dept && <td className="px-4 py-2.5">{student.department}</td>}
+                    {visibleColumns.gender && <td className="px-4 py-2.5">{student.gender || "N/A"}</td>}
+                    {visibleColumns.education && <td className="px-4 py-2.5">{student.education || "Undergraduate"}</td>}
+                    {visibleColumns.experience && <td className="px-4 py-2.5">{student.experience || "Fresher"}</td>}
+                    {visibleColumns.location && <td className="px-4 py-2.5">{student.location || "N/A"}</td>}
+                    {visibleColumns.jobRole && <td className="px-4 py-2.5 font-semibold">{student.jobRole || "N/A"}</td>}
+                    {visibleColumns.skills && (
+                      <td className="px-4 py-2.5 max-w-xs truncate" title={student.skills}>
+                        {student.skills || "N/A"}
+                      </td>
+                    )}
+                    {visibleColumns.resumeScore && <td className="px-4 py-2.5 font-bold text-gray-400">{student.resumeScore || "N/A"}</td>}
+                    {visibleColumns.status && (
+                      <td className="px-4 py-2.5">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase border ${
+                          student.placementStatus === 'PLACED' ? 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300' :
+                          'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300'
+                        }`}>
+                          {student.placementStatus || 'YET_TO_BE_PLACED'}
+                        </span>
+                      </td>
+                    )}
+                    {visibleColumns.actions && (
+                      <td className="px-4 py-2.5 text-right">
+                        <Link
+                          href={`/dashboard/students/${encodeURIComponent(student.id || student.rollNumber)}`}
+                          className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                        >
+                          <Eye size={14} />
+                          <span>View Profile</span>
+                        </Link>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+
+              {filteredStudents.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
-                    No students found matching your criteria.
+                  <td colSpan={14} className="px-6 py-16 text-center text-gray-500">
+                    <Users size={44} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
+                    <p className="text-base font-bold text-gray-800 dark:text-gray-200">No Students Found</p>
+                    <p className="text-xs text-gray-500 mt-1">Try adjusting your search query or filters.</p>
                   </td>
                 </tr>
               )}
@@ -589,23 +465,26 @@ export default function StudentsPage() {
           </table>
         </div>
 
-        {/* Pagination Footer */}
-        <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-          <span>Showing {paginatedStudents.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} to {Math.min(currentPage * itemsPerPage, filteredStudents.length)} of {filteredStudents.length} students</span>
-          
+        {/* Pagination Bar */}
+        <div className="p-4 bg-gray-50 dark:bg-gray-800/40 border-t border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+          <span className="font-semibold text-gray-500">
+            Showing {filteredStudents.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}–
+            {Math.min(currentPage * pageSize, filteredStudents.length)} of {filteredStudents.length} students
+          </span>
+
           <div className="flex items-center gap-2">
-            <button 
+            <button
               disabled={currentPage === 1}
-              onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-              className="p-1 rounded bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 disabled:opacity-40"
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-300 disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               <ChevronLeft size={16} />
             </button>
-            <span className="font-semibold text-gray-900 dark:text-white">Page {currentPage} of {totalPages}</span>
-            <button 
+            <span className="font-bold text-gray-800 dark:text-gray-200 px-2">Page {currentPage} of {totalPages}</span>
+            <button
               disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-              className="p-1 rounded bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 disabled:opacity-40"
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-600 dark:text-gray-300 disabled:opacity-40 hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               <ChevronRight size={16} />
             </button>
@@ -617,25 +496,20 @@ export default function StudentsPage() {
       {importAnalysis && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-md p-4 overflow-y-auto">
           <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl w-full max-w-5xl my-8 overflow-hidden animate-in zoom-in-95 duration-200">
-            
-            {/* Modal Header */}
             <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 p-6 text-white flex justify-between items-center">
               <div>
-                <p className="text-xs uppercase font-bold text-indigo-200 tracking-wider">Excel / CSV Import Analysis</p>
+                <p className="text-xs uppercase font-bold text-indigo-200 tracking-wider">CSV Import Analysis & Validation</p>
                 <h2 className="text-xl font-bold flex items-center gap-2 mt-0.5">
                   <FileSpreadsheet size={22} />
                   {importAnalysis.fileName}
                 </h2>
               </div>
-              <button 
-                onClick={() => setImportAnalysis(null)}
-                className="text-white/70 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"
-              >
+              <button onClick={() => setImportAnalysis(null)} className="text-white/70 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10">
                 <X size={22} />
               </button>
             </div>
 
-            {/* DETECTED COLUMNS SECTION (Requirement #6) */}
+            {/* DETECTED COLUMNS */}
             <div className="p-4 bg-indigo-50/50 dark:bg-indigo-950/30 border-b border-gray-200 dark:border-gray-800">
               <p className="text-xs font-bold uppercase text-indigo-800 dark:text-indigo-300 tracking-wider mb-2">
                 Detected Columns & Field Mapping
@@ -651,52 +525,31 @@ export default function StudentsPage() {
               </div>
             </div>
 
-            {/* Summary KPI Badges */}
+            {/* KPI Badges */}
             <div className="p-6 bg-gray-50 dark:bg-gray-800/40 border-b border-gray-200 dark:border-gray-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-3">
-                <div className="px-3 py-1.5 bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-xl text-xs font-bold">
-                  Total Rows: {importAnalysis.totalRows}
-                </div>
-                <div className="px-3 py-1.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 rounded-xl text-xs font-bold flex items-center gap-1.5">
-                  <CheckCircle2 size={14} /> Valid: {importAnalysis.validRows.length}
-                </div>
-                <div className="px-3 py-1.5 bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 rounded-xl text-xs font-bold flex items-center gap-1.5">
-                  <AlertTriangle size={14} /> Duplicates: {importAnalysis.duplicateRows.length}
-                </div>
-                <div className="px-3 py-1.5 bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 rounded-xl text-xs font-bold flex items-center gap-1.5">
-                  <AlertCircle size={14} /> Invalid: {importAnalysis.invalidRows.length}
-                </div>
+                <div className="px-3 py-1.5 bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-xl text-xs font-bold">Total: {importAnalysis.totalRows}</div>
+                <div className="px-3 py-1.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 rounded-xl text-xs font-bold flex items-center gap-1.5"><CheckCircle2 size={14} /> Valid: {importAnalysis.validRows.length}</div>
+                <div className="px-3 py-1.5 bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 rounded-xl text-xs font-bold flex items-center gap-1.5"><AlertTriangle size={14} /> Duplicates: {importAnalysis.duplicateRows.length}</div>
+                <div className="px-3 py-1.5 bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 rounded-xl text-xs font-bold flex items-center gap-1.5"><AlertCircle size={14} /> Invalid: {importAnalysis.invalidRows.length}</div>
               </div>
 
-              {/* Duplicate Handling Options */}
               {importAnalysis.duplicateRows.length > 0 && (
                 <div className="flex items-center gap-3 bg-white dark:bg-gray-900 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-xs font-semibold">
-                  <span className="text-gray-500">Duplicate Handling:</span>
+                  <span className="text-gray-500">Duplicates:</span>
                   <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="dupAction" 
-                      checked={duplicateAction === "SKIP"} 
-                      onChange={() => setDuplicateAction("SKIP")}
-                      className="text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <span>Skip Duplicate</span>
+                    <input type="radio" name="stDupAction" checked={duplicateAction === "SKIP"} onChange={() => setDuplicateAction("SKIP")} />
+                    <span>Skip</span>
                   </label>
                   <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input 
-                      type="radio" 
-                      name="dupAction" 
-                      checked={duplicateAction === "OVERWRITE"} 
-                      onChange={() => setDuplicateAction("OVERWRITE")}
-                      className="text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <span>Update Existing Student</span>
+                    <input type="radio" name="stDupAction" checked={duplicateAction === "OVERWRITE"} onChange={() => setDuplicateAction("OVERWRITE")} />
+                    <span>Overwrite</span>
                   </label>
                 </div>
               )}
             </div>
 
-            {/* Filter Tabs & Preview Table */}
+            {/* Table Preview */}
             <div className="p-6 space-y-4">
               <div className="flex gap-2 border-b border-gray-200 dark:border-gray-800 pb-2">
                 {[
@@ -709,9 +562,7 @@ export default function StudentsPage() {
                     key={tab.id}
                     onClick={() => setPreviewTab(tab.id as any)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                      previewTab === tab.id 
-                        ? "bg-indigo-600 text-white" 
-                        : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      previewTab === tab.id ? "bg-indigo-600 text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400"
                     }`}
                   >
                     {tab.label}
@@ -724,174 +575,58 @@ export default function StudentsPage() {
                   <thead className="bg-gray-50 dark:bg-gray-800/80 text-gray-500 dark:text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 sticky top-0">
                     <tr>
                       <th className="px-4 py-3">Row #</th>
-                      <th className="px-4 py-3">Student ID</th>
-                      <th className="px-4 py-3">Student Name</th>
+                      <th className="px-4 py-3">Roll Number</th>
+                      <th className="px-4 py-3">Name</th>
                       <th className="px-4 py-3">Department</th>
-                      <th className="px-4 py-3">CGPA</th>
+                      <th className="px-4 py-3">UG CGPA</th>
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3">Validation Message</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-800 text-gray-700 dark:text-gray-300 font-medium">
-                    {previewDisplayRows.map(row => (
-                      <tr key={row.rowNumber} className="hover:bg-gray-50 dark:hover:bg-gray-800/40">
-                        <td className="px-4 py-2.5 font-bold text-gray-400">{row.rowNumber}</td>
-                        <td className="px-4 py-2.5 font-semibold text-gray-900 dark:text-white">{row.studentId || "—"}</td>
-                        <td className="px-4 py-2.5 font-semibold">{row.name || "—"}</td>
-                        <td className="px-4 py-2.5">{row.department}</td>
-                        <td className="px-4 py-2.5 font-bold">{row.cgpa}%</td>
-                        <td className="px-4 py-2.5">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
-                            row.status === "VALID" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300" :
-                            row.status === "DUPLICATE" ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300" :
-                            "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"
-                          }`}>
-                            {row.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400">
-                          {row.reason}
-                        </td>
-                      </tr>
-                    ))}
-                    {previewDisplayRows.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
-                          No records in this tab.
-                        </td>
-                      </tr>
-                    )}
+                    {previewDisplayRows.map((row: any, idx: number) => {
+                      const d = row.data || row;
+                      return (
+                        <tr key={`prev-${row.rowNumber || idx}-${idx}`} className="hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                          <td className="px-4 py-2.5 font-bold text-gray-400">{row.rowNumber || idx + 1}</td>
+                          <td className="px-4 py-2.5 font-bold text-indigo-600 dark:text-indigo-400">{d.rollNumber || d.studentId || "N/A"}</td>
+                          <td className="px-4 py-2.5 font-semibold text-gray-900 dark:text-white">{d.name || "N/A"}</td>
+                          <td className="px-4 py-2.5">{d.department || "N/A"}</td>
+                          <td className="px-4 py-2.5 font-bold">{d.cgpa || d.ug || "N/A"}</td>
+                          <td className="px-4 py-2.5">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                              row.status === "VALID" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300" :
+                              row.status === "DUPLICATE" ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300" :
+                              "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"
+                            }`}>
+                              {row.status || "VALID"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5 text-xs text-gray-500">{row.reason || "Ready to import"}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             </div>
 
-            {/* Modal Actions with Dynamic Button (Requirement #12) */}
+            {/* Actions */}
             <div className="p-6 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between">
               <span className="text-xs font-semibold text-gray-500">
-                Ready to import: <b className="text-indigo-600 dark:text-indigo-400">{importTargetCount}</b> records
+                Ready to import: <b className="text-indigo-600 dark:text-indigo-400">
+                  {duplicateAction === "OVERWRITE" ? importAnalysis.validRows.length + importAnalysis.duplicateRows.length : importAnalysis.validRows.length}
+                </b> students
               </span>
-
               <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setImportAnalysis(null)}
-                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  disabled={importTargetCount === 0}
-                  onClick={executeImportCommit}
-                  className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition-all shadow-md flex items-center gap-2"
-                >
+                <button onClick={() => setImportAnalysis(null)} className="px-4 py-2.5 rounded-xl text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-100">Cancel</button>
+                <button onClick={executeImportCommit} className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 flex items-center gap-2 shadow-sm">
                   <Check size={16} />
-                  <span>
-                    Import {importTargetCount} Valid Student{importTargetCount === 1 ? "" : "s"}
-                  </span>
+                  <span>Import Students</span>
                 </button>
               </div>
             </div>
 
-          </div>
-        </div>
-      )}
-
-      {/* Manual Student Add/Edit Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-2xl w-full max-w-4xl my-8">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-800">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                {modalMode === "ADD" ? "Add New Student" : "Edit Student Profile"}
-              </h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-gray-900 dark:hover:text-white">
-                <X size={24} />
-              </button>
-            </div>
-            
-            <form onSubmit={handleModalSave} className="p-6 overflow-y-auto max-h-[70vh]">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                
-                {/* Basic Details */}
-                <div className="col-span-1 md:col-span-3 pb-2 border-b border-gray-100 dark:border-gray-800"><h3 className="font-semibold text-gray-900 dark:text-white">Basic Information</h3></div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name *</label>
-                  <input required type="text" value={editingStudent?.name} onChange={e => setEditingStudent({...editingStudent, name: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Roll Number *</label>
-                  <input required type="text" value={editingStudent?.rollNumber} onChange={e => setEditingStudent({...editingStudent, rollNumber: e.target.value, id: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Department *</label>
-                  <input required type="text" value={editingStudent?.department} onChange={e => setEditingStudent({...editingStudent, department: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email *</label>
-                  <input required type="email" value={editingStudent?.email} onChange={e => setEditingStudent({...editingStudent, email: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mobile</label>
-                  <input type="text" value={editingStudent?.mobile} onChange={e => setEditingStudent({...editingStudent, mobile: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Graduation Year</label>
-                  <input type="number" value={editingStudent?.yearOfGraduation} onChange={e => setEditingStudent({...editingStudent, yearOfGraduation: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
-                </div>
-
-                {/* Academics */}
-                <div className="col-span-1 md:col-span-3 pt-4 pb-2 border-b border-gray-100 dark:border-gray-800"><h3 className="font-semibold text-gray-900 dark:text-white">Academic Details</h3></div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">UG % / CGPA</label>
-                  <input type="text" value={editingStudent?.ugPercentageNum || editingStudent?.ugPercentage} onChange={e => setEditingStudent({...editingStudent, ugPercentageNum: e.target.value, ugPercentage: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">HSC %</label>
-                  <input type="text" value={editingStudent?.hscPercentage} onChange={e => setEditingStudent({...editingStudent, hscPercentage: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">SSLC %</label>
-                  <input type="text" value={editingStudent?.sslcPercentage} onChange={e => setEditingStudent({...editingStudent, sslcPercentage: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
-                </div>
-
-                {/* Links */}
-                <div className="col-span-1 md:col-span-3 pt-4 pb-2 border-b border-gray-100 dark:border-gray-800"><h3 className="font-semibold text-gray-900 dark:text-white">Profiles & Status</h3></div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">GitHub Username</label>
-                  <input type="text" value={editingStudent?.github} onChange={e => setEditingStudent({...editingStudent, github: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">LinkedIn Profile</label>
-                  <input type="text" value={editingStudent?.linkedin} onChange={e => setEditingStudent({...editingStudent, linkedin: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Portfolio Link</label>
-                  <input type="text" value={editingStudent?.portfolio} onChange={e => setEditingStudent({...editingStudent, portfolio: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white" />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Placement Status</label>
-                  <select value={editingStudent?.placementStatus} onChange={e => setEditingStudent({...editingStudent, placementStatus: e.target.value})} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-                    <option value="UNPLACED">Unplaced</option>
-                    <option value="SHORTLISTED">Shortlisted</option>
-                    <option value="PLACED">Placed</option>
-                  </select>
-                </div>
-                
-              </div>
-              
-              <div className="mt-8 flex justify-end gap-3 pt-6 border-t border-gray-100 dark:border-gray-800">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
-                  Cancel
-                </button>
-                <button type="submit" className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors">
-                  {modalMode === "ADD" ? "Add Student" : "Save Changes"}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
