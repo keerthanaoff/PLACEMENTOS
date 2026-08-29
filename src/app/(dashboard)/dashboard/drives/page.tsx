@@ -203,8 +203,8 @@ export default function DrivesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-800 text-gray-700 dark:text-gray-300">
-              {drives.map((drive) => (
-                <tr key={drive.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+              {drives.map((drive, idx) => (
+                <tr key={`drive-${drive.id || drive.title || idx}-${idx}`} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                   <td className="px-6 py-4 font-medium text-gray-400">{drive.id}</td>
                   <td className="px-6 py-4 font-bold text-gray-900 dark:text-white">{drive.title || "Software Engineer Drive"}</td>
                   <td className="px-6 py-4 font-semibold text-indigo-600 dark:text-indigo-400">{drive.company || drive.companyId}</td>

@@ -218,8 +218,8 @@ export default function CompaniesPage() {
 
       {/* Grid View */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredCompanies.map((company) => (
-          <div key={company.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
+        {filteredCompanies.map((company, idx) => (
+          <div key={`comp-${company.id || company.name || idx}-${idx}`} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between">
             <div>
               <div className="flex items-start justify-between">
                 <div>
