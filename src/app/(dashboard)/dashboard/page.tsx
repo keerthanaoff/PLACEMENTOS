@@ -101,21 +101,7 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* Charts Placeholders */}
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5 h-80 flex flex-col">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Placement Trend</h3>
-          <div className="flex-1 border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-lg flex items-center justify-center bg-gray-50/50 dark:bg-gray-950/50">
-            <p className="text-sm text-gray-400">Chart rendering area</p>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm p-5 h-80 flex flex-col">
-          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Department-wise Placement</h3>
-          <div className="flex-1 border-2 border-dashed border-gray-100 dark:border-gray-800 rounded-lg flex items-center justify-center bg-gray-50/50 dark:bg-gray-950/50">
-            <p className="text-sm text-gray-400">Chart rendering area</p>
-          </div>
-        </div>
-      </div>
+
     </div>
   );
 }
