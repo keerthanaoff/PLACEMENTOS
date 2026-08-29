@@ -366,8 +366,8 @@ export default function AIResumePage() {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-2">
-                        {student.resumeLink && <FileText className="w-4 h-4 text-indigo-500" title="Resume"/>}
-                        {student.github && <User className="w-4 h-4 text-gray-700 dark:text-gray-300" title="GitHub"/>}
+                        {student.resumeLink && <span title="Resume"><FileText className="w-4 h-4 text-indigo-500" /></span>}
+                        {student.github && <span title="GitHub"><User className="w-4 h-4 text-gray-700 dark:text-gray-300" /></span>}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { 
   ArrowLeft, Mail, Phone, MapPin, Calendar, 
   GitBranch, Network, FileText, ExternalLink, 
-  Award, Briefcase, BookOpen, BrainCircuit, CheckCircle2
+  Award, Briefcase, BookOpen, BrainCircuit, CheckCircle2, Users
 } from "lucide-react";
 
 import { studentService } from "@/services/storageService";
