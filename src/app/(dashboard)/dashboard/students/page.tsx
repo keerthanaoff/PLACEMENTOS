@@ -5,7 +5,8 @@ import Link from "next/link";
 import { 
   Search, Plus, Filter, Eye, Edit, Archive,
   GraduationCap, Download, Upload, SlidersHorizontal, X,
-  FileSpreadsheet, FileText, FileCode2, Trophy, ArrowUpDown, ChevronLeft, ChevronRight, CheckCircle2, AlertCircle
+  FileSpreadsheet, FileText, FileCode2, Trophy, ArrowUpDown, 
+  ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, RefreshCw, AlertTriangle, Check
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
@@ -13,6 +14,56 @@ import { studentService } from "@/services/storageService";
 import { authService } from "@/services/authService";
 import { usePathname } from "next/navigation";
 import { MOCK_STUDENTS } from "@/lib/mock-data";
+
+// Helper: Normalize object key for fuzzy header matching
+const normalizeKey = (key: any): string => {
+  return String(key || "").toLowerCase().trim().replace(/[^a-z0-9]/g, "");
+};
+
+// Column Alias definitions
+const ALIASES = {
+  id: ["studentid", "student_id", "student id", "student-id", "id", "rollno", "roll_no", "rollnumber", "roll_number", "roll number", "roll"],
+  name: ["studentname", "student_name", "student name", "studentname", "name", "fullname", "full_name"],
+  email: ["email", "emailid", "email_id", "email id", "emailaddress", "email_address"],
+  phone: ["phone", "phonenumber", "phone_number", "phone number", "mobile", "mobilenumber", "mobile_number", "mobile_no", "mobileno"],
+  department: ["department", "dept", "branch", "course"],
+  year: ["year", "graduationyear", "graduation_year", "graduation year", "passingyear", "passing_year", "batch"],
+  cgpa: ["cgpa", "gpa", "percentage", "ug", "ugpercentage", "ug_percentage", "ug%", "score"],
+  skills: ["skills", "technicalskills", "technical_skills", "technical skills"],
+  status: ["placementstatus", "placement_status", "placement status", "status"],
+  resume: ["resume", "resumeurl", "resume_url", "resumelink", "resume_link"]
+};
+
+// Helper: Extract value from row using alias list
+const extractValue = (row: any, aliasList: string[]): string => {
+  if (!row || typeof row !== "object") return "";
+  const keys = Object.keys(row);
+  for (const key of keys) {
+    const normKey = normalizeKey(key);
+    if (aliasList.some(alias => normKey === normalizeKey(alias))) {
+      const val = row[key];
+      return val !== undefined && val !== null ? String(val).trim() : "";
+    }
+  }
+  return "";
+};
+
+interface ImportRowData {
+  rowNumber: number;
+  studentId: string;
+  name: string;
+  email: string;
+  phone: string;
+  department: string;
+  year: number;
+  cgpa: string;
+  skills: string;
+  resumeLink: string;
+  placementStatus: string;
+  status: "VALID" | "DUPLICATE" | "INVALID";
+  reason: string;
+  rawRow: any;
+}
 
 export default function StudentsPage() {
   const pathname = usePathname();
@@ -29,11 +80,24 @@ export default function StudentsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Import / Notification State
+  // Import Preview Modal State
+  const [importPreview, setImportPreview] = useState<{
+    fileName: string;
+    totalRows: number;
+    validRows: ImportRowData[];
+    duplicateRows: ImportRowData[];
+    invalidRows: ImportRowData[];
+    allRows: ImportRowData[];
+  } | null>(null);
+
+  const [duplicateAction, setDuplicateAction] = useState<"SKIP" | "OVERWRITE">("SKIP");
+  const [previewTab, setPreviewTab] = useState<"ALL" | "VALID" | "DUPLICATE" | "INVALID">("ALL");
+
+  // Notification State
   const [notification, setNotification] = useState<{ type: "SUCCESS" | "ERROR"; message: string } | null>(null);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
 
-  // Modal State
+  // Manual Student Add/Edit Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"ADD" | "EDIT">("ADD");
   const [editingStudent, setEditingStudent] = useState<any>(null);
@@ -93,7 +157,7 @@ export default function StudentsPage() {
       .slice(0, 5);
   }, [students]);
 
-  // Excel/CSV Import Handler
+  // Excel/CSV Import Click Handler
   const handleImportClick = () => {
     const user = authService.getCurrentUser();
     if (!user) {
@@ -103,12 +167,15 @@ export default function StudentsPage() {
     fileInputRef.current?.click();
   };
 
+  // File Upload Processing & Per-Row Validation Engine
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const fileName = file.name.toLowerCase();
-    if (!fileName.endsWith(".xlsx") && !fileName.endsWith(".xls") && !fileName.endsWith(".csv")) {
+    const fileName = file.name;
+    const lowerName = fileName.toLowerCase();
+
+    if (!lowerName.endsWith(".xlsx") && !lowerName.endsWith(".xls") && !lowerName.endsWith(".csv")) {
       setNotification({ type: "ERROR", message: "Invalid file format. Please upload an Excel (.xlsx, .xls) or CSV file." });
       return;
     }
@@ -120,81 +187,97 @@ export default function StudentsPage() {
         const workbook = XLSX.read(bstr, { type: "binary" });
         const wsname = workbook.SheetNames[0];
         const ws = workbook.Sheets[wsname];
-        const rawData: any[] = XLSX.utils.sheet_to_json(ws);
+        const rawRows: any[] = XLSX.utils.sheet_to_json(ws);
 
-        if (!rawData || rawData.length === 0) {
+        if (!rawRows || rawRows.length === 0) {
           setNotification({ type: "ERROR", message: "Uploaded Excel file is empty." });
           return;
         }
 
         const existingStudents = studentService.getAll();
-        const existingRolls = new Set(existingStudents.map(s => (s.rollNumber || s.id || "").toLowerCase()));
+        const dbRolls = new Set(existingStudents.map(s => normalizeKey(s.rollNumber || s.id)));
+        const fileRolls = new Set<string>();
 
-        let importedCount = 0;
-        let skippedCount = 0;
+        const parsedRows: ImportRowData[] = [];
+        const validRows: ImportRowData[] = [];
+        const duplicateRows: ImportRowData[] = [];
+        const invalidRows: ImportRowData[] = [];
 
-        rawData.forEach(row => {
-          const rollNumber = String(
-            row["Student ID"] || row["roll_no"] || row["rollNumber"] || row["ID"] || row["Roll Number"] || ""
-          ).trim();
+        rawRows.forEach((rawRow, index) => {
+          const rowNumber = index + 2; // Excel row 2 (header is row 1)
 
-          const name = String(
-            row["Student Name"] || row["name"] || row["Name"] || ""
-          ).trim();
+          // Extract values using fuzzy alias list
+          const rawId = extractValue(rawRow, ALIASES.id);
+          const name = extractValue(rawRow, ALIASES.name);
+          const email = extractValue(rawRow, ALIASES.email);
+          const phone = extractValue(rawRow, ALIASES.phone);
+          const department = extractValue(rawRow, ALIASES.department) || "CSE";
+          const yearStr = extractValue(rawRow, ALIASES.year);
+          const year = parseInt(yearStr || "2026") || 2026;
+          const cgpa = extractValue(rawRow, ALIASES.cgpa) || "75";
+          const skills = extractValue(rawRow, ALIASES.skills) || "Java, React, SQL";
+          const statusStr = extractValue(rawRow, ALIASES.status).toUpperCase();
+          const resumeLink = extractValue(rawRow, ALIASES.resume);
 
-          const email = String(
-            row["Email"] || row["email"] || row["Email Address"] || ""
-          ).trim();
+          const placementStatus = ["PLACED", "SHORTLISTED", "UNPLACED"].includes(statusStr) ? statusStr : "UNPLACED";
+          const studentId = rawId.trim();
+          const normId = normalizeKey(studentId);
 
-          const department = String(
-            row["Department"] || row["department"] || row["Dept"] || "CSE"
-          ).trim();
+          let rowStatus: "VALID" | "DUPLICATE" | "INVALID" = "VALID";
+          let reason = "Valid record";
 
-          // Validation
-          if (!rollNumber || !name) {
-            skippedCount++;
-            return;
+          // Strict Validation
+          if (!studentId) {
+            rowStatus = "INVALID";
+            reason = `Row ${rowNumber}: Student ID is missing`;
+          } else if (!name) {
+            rowStatus = "INVALID";
+            reason = `Row ${rowNumber}: Student Name is missing`;
+          } else if (dbRolls.has(normId)) {
+            rowStatus = "DUPLICATE";
+            reason = `Row ${rowNumber}: Student ID "${studentId}" already exists in database`;
+          } else if (fileRolls.has(normId)) {
+            rowStatus = "DUPLICATE";
+            reason = `Row ${rowNumber}: Duplicate Student ID "${studentId}" in uploaded file`;
+          } else {
+            fileRolls.add(normId);
           }
 
-          if (existingRolls.has(rollNumber.toLowerCase())) {
-            skippedCount++;
-            return;
-          }
-
-          const mobile = String(row["Phone"] || row["mobile_no"] || row["mobile"] || "").trim();
-          const year = parseInt(row["Year"] || row["graduation_year"] || row["yearOfGraduation"] || "2026");
-          const ugMark = String(row["CGPA"] || row["ug"] || row["ugPercentage"] || "75");
-          const skills = String(row["Skills"] || row["skills"] || "Java, React, SQL").trim();
-          const resumeLink = String(row["Resume"] || row["resume_url"] || row["resumeLink"] || "").trim();
-          const status = String(row["Placement Status"] || row["placementStatus"] || "UNPLACED").trim().toUpperCase();
-
-          const newStudent = {
-            id: rollNumber,
-            rollNumber,
-            name,
-            email: email || `${rollNumber.toLowerCase()}@college.edu`,
-            mobile,
+          const parsedRow: ImportRowData = {
+            rowNumber,
+            studentId: studentId || "N/A",
+            name: name || "Unknown",
+            email: email || `${(studentId || "student").toLowerCase()}@college.edu`,
+            phone,
             department,
-            yearOfGraduation: year,
-            ugPercentage: ugMark,
-            ugPercentageNum: ugMark,
+            year,
+            cgpa,
             skills,
             resumeLink,
-            placementStatus: ["PLACED", "SHORTLISTED", "UNPLACED"].includes(status) ? status : "UNPLACED",
-            resumeScore: Math.floor(Math.random() * (95 - 70 + 1)) + 70,
-            isArchived: false
+            placementStatus,
+            status: rowStatus,
+            reason,
+            rawRow
           };
 
-          studentService.save(newStudent);
-          existingRolls.add(rollNumber.toLowerCase());
-          importedCount++;
+          parsedRows.push(parsedRow);
+          if (rowStatus === "VALID") validRows.push(parsedRow);
+          else if (rowStatus === "DUPLICATE") duplicateRows.push(parsedRow);
+          else invalidRows.push(parsedRow);
         });
 
-        loadStudents();
-        setNotification({
-          type: "SUCCESS",
-          message: `${importedCount} students imported successfully. ${skippedCount} records skipped due to missing/duplicate IDs.`
+        // Open Import Preview Modal
+        setImportPreview({
+          fileName,
+          totalRows: parsedRows.length,
+          validRows,
+          duplicateRows,
+          invalidRows,
+          allRows: parsedRows
         });
+        setPreviewTab("ALL");
+        setDuplicateAction("SKIP");
+
       } catch (err) {
         setNotification({ type: "ERROR", message: "Failed to parse Excel file. Please check file formatting." });
       }
@@ -202,6 +285,62 @@ export default function StudentsPage() {
 
     reader.readAsBinaryString(file);
     if (e.target) e.target.value = "";
+  };
+
+  // Commit Import Action (Save Valid/Duplicate Records)
+  const executeImportCommit = () => {
+    if (!importPreview) return;
+
+    let rowsToImport: ImportRowData[] = [];
+    if (duplicateAction === "OVERWRITE") {
+      rowsToImport = [...importPreview.validRows, ...importPreview.duplicateRows];
+    } else {
+      rowsToImport = importPreview.validRows;
+    }
+
+    if (rowsToImport.length === 0) {
+      setNotification({ type: "ERROR", message: "No valid records selected to import." });
+      setImportPreview(null);
+      return;
+    }
+
+    let insertedCount = 0;
+    let updatedCount = 0;
+
+    const existingStudents = studentService.getAll();
+
+    rowsToImport.forEach(row => {
+      const isExisting = existingStudents.some(s => normalizeKey(s.rollNumber || s.id) === normalizeKey(row.studentId));
+
+      const studentObject = {
+        id: row.studentId,
+        rollNumber: row.studentId,
+        name: row.name,
+        email: row.email,
+        mobile: row.phone,
+        department: row.department,
+        yearOfGraduation: row.year,
+        ugPercentage: row.cgpa,
+        ugPercentageNum: parseFloat(row.cgpa) || 75,
+        skills: row.skills,
+        resumeLink: row.resumeLink,
+        placementStatus: row.placementStatus,
+        resumeScore: Math.floor(Math.random() * (95 - 70 + 1)) + 70,
+        isArchived: false
+      };
+
+      studentService.save(studentObject);
+      if (isExisting) updatedCount++;
+      else insertedCount++;
+    });
+
+    loadStudents();
+    setImportPreview(null);
+
+    setNotification({
+      type: "SUCCESS",
+      message: `${insertedCount} students imported successfully. ${updatedCount > 0 ? `${updatedCount} existing records updated.` : ""}`
+    });
   };
 
   // Export Word (.docx) Handler
@@ -268,7 +407,7 @@ export default function StudentsPage() {
     window.print();
   };
 
-  // Modal Handlers
+  // Manual Student Add/Edit Handlers
   const openAddModal = () => {
     setModalMode("ADD");
     setEditingStudent({
@@ -306,9 +445,18 @@ export default function StudentsPage() {
     }
   };
 
+  // Derived Rows for Preview Modal
+  const previewDisplayRows = useMemo(() => {
+    if (!importPreview) return [];
+    if (previewTab === "VALID") return importPreview.validRows;
+    if (previewTab === "DUPLICATE") return importPreview.duplicateRows;
+    if (previewTab === "INVALID") return importPreview.invalidRows;
+    return importPreview.allRows;
+  }, [importPreview, previewTab]);
+
   return (
     <div className="space-y-6">
-      {/* Hidden File Input for Excel Import */}
+      {/* Hidden File Input for Excel/CSV Import */}
       <input 
         type="file" 
         ref={fileInputRef} 
@@ -595,6 +743,174 @@ export default function StudentsPage() {
           </div>
         </div>
       </div>
+
+      {/* IMPORT PREVIEW MODAL */}
+      {importPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-md p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl w-full max-w-5xl my-8 overflow-hidden animate-in zoom-in-95 duration-200">
+            
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 p-6 text-white flex justify-between items-center">
+              <div>
+                <p className="text-xs uppercase font-bold text-indigo-200 tracking-wider">Excel / CSV Import Analysis</p>
+                <h2 className="text-xl font-bold flex items-center gap-2 mt-0.5">
+                  <FileSpreadsheet size={22} />
+                  {importPreview.fileName}
+                </h2>
+              </div>
+              <button 
+                onClick={() => setImportPreview(null)}
+                className="text-white/70 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"
+              >
+                <X size={22} />
+              </button>
+            </div>
+
+            {/* Summary KPI Badges */}
+            <div className="p-6 bg-gray-50 dark:bg-gray-800/40 border-b border-gray-200 dark:border-gray-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="px-3 py-1.5 bg-gray-200 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-xl text-xs font-bold">
+                  Total Rows: {importPreview.totalRows}
+                </div>
+                <div className="px-3 py-1.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                  <CheckCircle2 size={14} /> Valid: {importPreview.validRows.length}
+                </div>
+                <div className="px-3 py-1.5 bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                  <AlertTriangle size={14} /> Duplicates: {importPreview.duplicateRows.length}
+                </div>
+                <div className="px-3 py-1.5 bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 rounded-xl text-xs font-bold flex items-center gap-1.5">
+                  <AlertCircle size={14} /> Invalid: {importPreview.invalidRows.length}
+                </div>
+              </div>
+
+              {/* Duplicate Handling Toggle */}
+              {importPreview.duplicateRows.length > 0 && (
+                <div className="flex items-center gap-3 bg-white dark:bg-gray-900 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 text-xs font-semibold">
+                  <span className="text-gray-500">Duplicate Handling:</span>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="dupAction" 
+                      checked={duplicateAction === "SKIP"} 
+                      onChange={() => setDuplicateAction("SKIP")}
+                      className="text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span>Skip</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="dupAction" 
+                      checked={duplicateAction === "OVERWRITE"} 
+                      onChange={() => setDuplicateAction("OVERWRITE")}
+                      className="text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span>Overwrite</span>
+                  </label>
+                </div>
+              )}
+            </div>
+
+            {/* Filter Tabs & Preview Table */}
+            <div className="p-6 space-y-4">
+              <div className="flex gap-2 border-b border-gray-200 dark:border-gray-800 pb-2">
+                {[
+                  { id: "ALL", label: `All (${importPreview.totalRows})` },
+                  { id: "VALID", label: `Valid (${importPreview.validRows.length})` },
+                  { id: "DUPLICATE", label: `Duplicates (${importPreview.duplicateRows.length})` },
+                  { id: "INVALID", label: `Invalid (${importPreview.invalidRows.length})` },
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setPreviewTab(tab.id as any)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                      previewTab === tab.id 
+                        ? "bg-indigo-600 text-white" 
+                        : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="max-h-[350px] overflow-auto border border-gray-200 dark:border-gray-800 rounded-xl">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-gray-50 dark:bg-gray-800/80 text-gray-500 dark:text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 sticky top-0">
+                    <tr>
+                      <th className="px-4 py-3">Row #</th>
+                      <th className="px-4 py-3">Student ID</th>
+                      <th className="px-4 py-3">Student Name</th>
+                      <th className="px-4 py-3">Department</th>
+                      <th className="px-4 py-3">CGPA</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Validation Message</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-800 text-gray-700 dark:text-gray-300 font-medium">
+                    {previewDisplayRows.map(row => (
+                      <tr key={row.rowNumber} className="hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                        <td className="px-4 py-2.5 font-bold text-gray-400">{row.rowNumber}</td>
+                        <td className="px-4 py-2.5 font-semibold text-gray-900 dark:text-white">{row.studentId}</td>
+                        <td className="px-4 py-2.5 font-semibold">{row.name}</td>
+                        <td className="px-4 py-2.5">{row.department}</td>
+                        <td className="px-4 py-2.5 font-bold">{row.cgpa}%</td>
+                        <td className="px-4 py-2.5">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                            row.status === "VALID" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300" :
+                            row.status === "DUPLICATE" ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300" :
+                            "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"
+                          }`}>
+                            {row.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5 text-xs font-semibold text-gray-500 dark:text-gray-400">
+                          {row.reason}
+                        </td>
+                      </tr>
+                    ))}
+                    {previewDisplayRows.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                          No records in this tab.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="p-6 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between">
+              <span className="text-xs font-semibold text-gray-500">
+                Will import: <b className="text-indigo-600 dark:text-indigo-400">
+                  {duplicateAction === "OVERWRITE" ? importPreview.validRows.length + importPreview.duplicateRows.length : importPreview.validRows.length}
+                </b> records
+              </span>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setImportPreview(null)}
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={executeImportCommit}
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:scale-95 transition-all shadow-md flex items-center gap-2"
+                >
+                  <Check size={16} />
+                  <span>
+                    Import {duplicateAction === "OVERWRITE" ? importPreview.validRows.length + importPreview.duplicateRows.length : importPreview.validRows.length} Valid Students
+                  </span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* Manual Student Add/Edit Modal */}
       {isModalOpen && (
