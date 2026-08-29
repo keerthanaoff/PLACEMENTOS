@@ -59,7 +59,7 @@ export function JDProvider({ children }: { children: React.ReactNode }) {
       }
     } else {
       // Map mock data to the required format
-      const initialJDs = MOCK_JDS.map((jd) => ({
+      const initialJDs = (MOCK_JDS as any[]).map((jd: any) => ({
         ...jd,
         status: "ACTIVE" as const,
         approvalStatus: "APPROVED" as const,

@@ -26,27 +26,11 @@ export const storageService = {
 export const initializeData = () => {
   if (!isBrowser) return;
   
-  const existingStudents = storageService.get<any[]>("pos_students", []);
-  if (!existingStudents || existingStudents.length === 0) {
-    storageService.set("pos_students", MOCK_STUDENTS.map(s => ({...s, isArchived: false})));
-  } else {
-    // Sync any missing CSV records from MOCK_STUDENTS into localStorage
-    let updated = false;
-    MOCK_STUDENTS.forEach(mockS => {
-      if (!existingStudents.some(s => s.id === mockS.id || s.rollNumber === mockS.rollNumber)) {
-        existingStudents.push({ ...mockS, isArchived: false });
-        updated = true;
-      }
-    });
-    if (updated) {
-      storageService.set("pos_students", existingStudents);
-    }
-  }
-
-  if (!localStorage.getItem("pos_companies")) storageService.set("pos_companies", MOCK_COMPANIES.map(c => ({...c, status: "COLD", approvalStatus: "APPROVED", isArchived: false})));
-  if (!localStorage.getItem("pos_jds")) storageService.set("pos_jds", MOCK_JDS.map(j => ({...j, status: "ACTIVE", approvalStatus: "APPROVED"})));
-  if (!localStorage.getItem("pos_drives")) storageService.set("pos_drives", MOCK_DRIVES);
-  if (!localStorage.getItem("pos_recruiters")) storageService.set("pos_recruiters", MOCK_RECRUITERS);
+  if (!localStorage.getItem("pos_students")) storageService.set("pos_students", []);
+  if (!localStorage.getItem("pos_companies")) storageService.set("pos_companies", []);
+  if (!localStorage.getItem("pos_jds")) storageService.set("pos_jds", []);
+  if (!localStorage.getItem("pos_drives")) storageService.set("pos_drives", []);
+  if (!localStorage.getItem("pos_recruiters")) storageService.set("pos_recruiters", []);
 };
 
 // Data Services
@@ -55,10 +39,18 @@ export const studentService = {
   getById: (id: string) => studentService.getAll().find(s => s.id === id),
   save: (data: any) => {
     const all = studentService.getAll();
-    const existingIndex = all.findIndex(s => s.id === data.id);
-    if (existingIndex > -1) all[existingIndex] = data;
-    else all.push({ ...data, id: `S${Date.now()}` });
+    const targetId = data.id || data.rollNumber;
+    const existingIndex = all.findIndex(s => (s.id || s.rollNumber) === targetId);
+    if (existingIndex > -1) {
+      all[existingIndex] = { ...all[existingIndex], ...data };
+    } else {
+      all.push({ ...data, id: targetId || `S${Date.now()}_${Math.random().toString(36).substring(2, 7)}` });
+    }
     storageService.set("pos_students", all);
+  },
+  delete: (id: string) => {
+    const filtered = studentService.getAll().filter(s => s.id !== id);
+    storageService.set("pos_students", filtered);
   }
 };
 

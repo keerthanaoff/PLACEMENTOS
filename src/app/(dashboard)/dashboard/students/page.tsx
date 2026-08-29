@@ -46,7 +46,7 @@ export default function StudentsPage() {
 
   const loadStudents = () => {
     const loaded = studentService.getAll().filter(s => !s.isArchived);
-    setStudents(loaded.length > 0 ? loaded : MOCK_STUDENTS);
+    setStudents(loaded);
   };
 
   useEffect(() => {
