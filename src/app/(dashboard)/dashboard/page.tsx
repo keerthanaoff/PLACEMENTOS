@@ -6,17 +6,18 @@ import {
 } from "lucide-react";
 
 import { useEffect, useState } from "react";
-import { companyService, driveService } from "@/services/storageService";
+import { driveService } from "@/services/storageService";
 import { studentService } from "@/services/studentService";
+import { companyService } from "@/services/companyService";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({
-    students: 0, companies: 0, cold: 0, warm: 0, hot: 0, drives: 0, placed: 0
+    students: 0, companies: 0, cold: 0, warm: 0, hot: 0, drivesCompleted: 0, drives: 0, placed: 0, avgCtc: "12.6 LPA"
   });
 
   useEffect(() => {
     const students = studentService.getStudents();
-    const companies = companyService.getAll();
+    const companies = companyService.getCompanies();
     const drives = driveService.getAll();
 
     setStats({
@@ -25,8 +26,10 @@ export default function AdminDashboard() {
       cold: companies.filter(c => c.status === "COLD").length,
       warm: companies.filter(c => c.status === "WARM").length,
       hot: companies.filter(c => c.status === "HOT").length,
-      drives: drives.length,
+      drivesCompleted: companies.filter(c => c.status === "DRIVE_COMPLETED").length,
+      drives: drives.length || companies.length,
       placed: students.filter(s => s.placementStatus === "PLACED").length,
+      avgCtc: "12.6 LPA"
     });
   }, []);
 
@@ -36,7 +39,7 @@ export default function AdminDashboard() {
     { name: "Cold Companies", value: stats.cold.toString(), icon: Briefcase, color: "text-gray-500", bg: "bg-gray-50 dark:bg-gray-900/20" },
     { name: "Warm Companies", value: stats.warm.toString(), icon: Briefcase, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-900/20" },
     { name: "Hot Companies", value: stats.hot.toString(), icon: Briefcase, color: "text-orange-500", bg: "bg-orange-50 dark:bg-orange-900/20" },
-    { name: "Drives", value: stats.drives.toString(), icon: CalendarDays, color: "text-green-500", bg: "bg-green-50 dark:bg-green-900/20" },
+    { name: "Drives Completed", value: stats.drivesCompleted.toString(), icon: CalendarDays, color: "text-green-500", bg: "bg-green-50 dark:bg-green-900/20" },
     { name: "Students Placed", value: stats.placed.toString(), icon: Award, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
   ];
 
@@ -52,54 +55,40 @@ export default function AdminDashboard() {
             <BrainCircuit className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
           </div>
           <div>
-            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Avg CTC</p>
-            <p className="text-lg font-bold text-gray-900 dark:text-white">5.2 LPA</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Avg CTC Package</p>
+            <p className="text-lg font-bold text-gray-900 dark:text-white">{stats.avgCtc}</p>
           </div>
         </div>
       </div>
 
       {/* AI Insight Card */}
-      <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-6 text-white shadow-md relative overflow-hidden">
-        <div className="absolute right-0 top-0 w-64 h-64 bg-white opacity-5 rounded-full -translate-y-1/2 translate-x-1/3 blur-2xl"></div>
-        <div className="relative z-10 flex items-start sm:items-center gap-4 flex-col sm:flex-row">
-          <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm border border-white/20">
-            <BrainCircuit className="w-8 h-8 text-white" />
+      <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-900/40 via-purple-900/30 to-slate-900/50 border border-indigo-500/20 backdrop-blur-md text-white flex items-center justify-between shadow-lg">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <TrendingUp size={16} className="text-indigo-400" />
+            <span className="text-xs font-semibold uppercase text-indigo-300 tracking-wider">Placement OS AI • Ecosystem Status</span>
           </div>
-          <div className="flex-1">
-            <h2 className="text-xl font-bold mb-1">AI Placement Intelligence</h2>
-            <div className="flex flex-col sm:flex-row gap-2 sm:gap-6 text-indigo-100 text-sm">
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-400"></span> 6 companies are currently HOT.</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400"></span> 12 JDs require approval.</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400"></span> 48 students have resume matches above 80%.</span>
-            </div>
-          </div>
-          <button className="bg-white text-indigo-600 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm hover:bg-indigo-50 transition-colors mt-2 sm:mt-0">
-            View Details
-          </button>
+          <h3 className="text-sm font-semibold">20 Corporate Partners & 100 Authentic Students Mapped across 20 Drives</h3>
         </div>
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {kpis.map((kpi, i) => (
-          <div key={i} className="bg-white dark:bg-gray-900 rounded-xl p-5 border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-4">
-              <div className={`p-2 rounded-lg ${kpi.bg}`}>
-                <kpi.icon className={`w-5 h-5 ${kpi.color}`} />
+      {/* KPI Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+        {kpis.map((kpi, index) => {
+          const Icon = kpi.icon;
+          return (
+            <div key={index} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{kpi.name}</span>
+                <div className={`p-1.5 rounded-lg ${kpi.bg}`}>
+                  <Icon className={`w-4 h-4 ${kpi.color}`} />
+                </div>
               </div>
-              <span className="flex items-center text-xs font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-full">
-                +12% <ArrowUpRight className="w-3 h-3 ml-0.5" />
-              </span>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">{kpi.value}</p>
             </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{kpi.value}</p>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1">{kpi.name}</p>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
-
-
     </div>
   );
 }
