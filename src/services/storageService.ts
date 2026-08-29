@@ -44,8 +44,9 @@ const sanitizeAndUnique = (items: any[], prefix: string): any[] => {
 export const initializeData = () => {
   if (!isBrowser) return;
   
-  if (!localStorage.getItem("pos_students")) storageService.set("pos_students", []);
-  if (!localStorage.getItem("pos_companies")) storageService.set("pos_companies", []);
+  // Wipe student and company data as requested
+  storageService.set("pos_students", []);
+  storageService.set("pos_companies", []);
   if (!localStorage.getItem("pos_jds")) storageService.set("pos_jds", []);
   if (!localStorage.getItem("pos_drives")) storageService.set("pos_drives", []);
   if (!localStorage.getItem("pos_recruiters")) storageService.set("pos_recruiters", []);
@@ -53,13 +54,13 @@ export const initializeData = () => {
 
 export const resetDemoData = () => {
   if (!isBrowser) return;
-  localStorage.removeItem("pos_students");
-  localStorage.removeItem("pos_companies");
-  localStorage.removeItem("pos_jds");
-  localStorage.removeItem("pos_drives");
-  localStorage.removeItem("pos_recruiters");
-  localStorage.removeItem("pos_applications");
-  localStorage.removeItem("pos_offers");
+  storageService.set("pos_students", []);
+  storageService.set("pos_companies", []);
+  storageService.set("pos_jds", []);
+  storageService.set("pos_drives", []);
+  storageService.set("pos_recruiters", []);
+  storageService.set("pos_applications", []);
+  storageService.set("pos_offers", []);
   initializeData();
 };
 
