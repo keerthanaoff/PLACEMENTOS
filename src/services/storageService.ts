@@ -1,25 +1,43 @@
-import { MOCK_STUDENTS, MOCK_COMPANIES, MOCK_JDS, MOCK_DRIVES, MOCK_RECRUITERS } from "@/lib/mock-data";
+// Generic LocalStorage helper with Safe SSR Check
+const isBrowser = typeof window !== "undefined";
 
-// Helper to check if we are in the browser
-const isBrowser = typeof window !== 'undefined';
-
-// Generic CRUD Operations for LocalStorage
 export const storageService = {
-  get<T>(key: string, fallback: T): T {
-    if (!isBrowser) return fallback;
-    const item = localStorage.getItem(key);
-    return item ? JSON.parse(item) : fallback;
+  get: <T>(key: string, defaultValue: T): T => {
+    if (!isBrowser) return defaultValue;
+    try {
+      const item = localStorage.getItem(key);
+      return item ? JSON.parse(item) : defaultValue;
+    } catch (e) {
+      console.error(`Error reading ${key} from localStorage`, e);
+      return defaultValue;
+    }
   },
-  
-  set<T>(key: string, value: T): void {
+  set: <T>(key: string, value: T): void => {
     if (!isBrowser) return;
-    localStorage.setItem(key, JSON.stringify(value));
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {
+      console.error(`Error writing ${key} to localStorage`, e);
+    }
   },
-  
-  remove(key: string): void {
+  remove: (key: string): void => {
     if (!isBrowser) return;
     localStorage.removeItem(key);
   }
+};
+
+// Helper: Ensure every record in an array has a guaranteed unique ID
+const sanitizeAndUnique = (items: any[], prefix: string): any[] => {
+  if (!Array.isArray(items)) return [];
+  const seenIds = new Set<string>();
+  return items.map((item, idx) => {
+    let currentId = item?.id ? String(item.id).trim() : "";
+    if (!currentId || seenIds.has(currentId)) {
+      currentId = `${prefix}_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 7)}`;
+    }
+    seenIds.add(currentId);
+    return { ...item, id: currentId };
+  });
 };
 
 // Seed function to initialize demo data if missing
@@ -33,9 +51,24 @@ export const initializeData = () => {
   if (!localStorage.getItem("pos_recruiters")) storageService.set("pos_recruiters", []);
 };
 
+export const resetDemoData = () => {
+  if (!isBrowser) return;
+  localStorage.removeItem("pos_students");
+  localStorage.removeItem("pos_companies");
+  localStorage.removeItem("pos_jds");
+  localStorage.removeItem("pos_drives");
+  localStorage.removeItem("pos_recruiters");
+  localStorage.removeItem("pos_applications");
+  localStorage.removeItem("pos_offers");
+  initializeData();
+};
+
 // Data Services
 export const studentService = {
-  getAll: () => storageService.get<any[]>("pos_students", []),
+  getAll: () => {
+    const raw = storageService.get<any[]>("pos_students", []);
+    return sanitizeAndUnique(raw, "S");
+  },
   getById: (id: string) => studentService.getAll().find(s => s.id === id),
   save: (data: any) => {
     const all = studentService.getAll();
@@ -44,7 +77,8 @@ export const studentService = {
     if (existingIndex > -1) {
       all[existingIndex] = { ...all[existingIndex], ...data };
     } else {
-      all.push({ ...data, id: targetId || `S${Date.now()}_${Math.random().toString(36).substring(2, 7)}` });
+      const newId = targetId || `S_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      all.push({ ...data, id: newId });
     }
     storageService.set("pos_students", all);
   },
@@ -55,13 +89,22 @@ export const studentService = {
 };
 
 export const companyService = {
-  getAll: () => storageService.get<any[]>("pos_companies", []),
+  getAll: () => {
+    const raw = storageService.get<any[]>("pos_companies", []);
+    return sanitizeAndUnique(raw, "C");
+  },
   getById: (id: string) => companyService.getAll().find(c => c.id === id),
   save: (data: any) => {
     const all = companyService.getAll();
-    const existingIndex = all.findIndex(c => c.id === data.id);
-    if (existingIndex > -1) all[existingIndex] = data;
-    else all.push({ ...data, id: `C${Date.now()}` });
+    const targetId = data.id || (data.name ? `C_${data.name.toLowerCase().trim().replace(/[^a-z0-9]/g, "")}` : null);
+    const existingIndex = all.findIndex(c => c.id === targetId || (c.name && data.name && c.name.toLowerCase().trim() === data.name.toLowerCase().trim()));
+    
+    if (existingIndex > -1) {
+      all[existingIndex] = { ...all[existingIndex], ...data };
+    } else {
+      const newId = targetId || `C_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      all.push({ ...data, id: newId });
+    }
     storageService.set("pos_companies", all);
   },
   updateStatus: (id: string, status: string) => {
@@ -75,25 +118,33 @@ export const companyService = {
 };
 
 export const jdService = {
-  getAll: () => storageService.get<any[]>("pos_jds", []),
+  getAll: () => {
+    const raw = storageService.get<any[]>("pos_jds", []);
+    return sanitizeAndUnique(raw, "JD");
+  },
   getById: (id: string) => jdService.getAll().find(j => j.id === id),
   save: (data: any) => {
     const all = jdService.getAll();
-    const existingIndex = all.findIndex(j => j.id === data.id);
-    if (existingIndex > -1) all[existingIndex] = data;
-    else all.push({ ...data, id: `JD${Date.now()}` });
+    const targetId = data.id || `JD_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const existingIndex = all.findIndex(j => j.id === targetId);
+    if (existingIndex > -1) all[existingIndex] = { ...all[existingIndex], ...data };
+    else all.push({ ...data, id: targetId });
     storageService.set("pos_jds", all);
   }
 };
 
 export const driveService = {
-  getAll: () => storageService.get<any[]>("pos_drives", []),
+  getAll: () => {
+    const raw = storageService.get<any[]>("pos_drives", []);
+    return sanitizeAndUnique(raw, "D");
+  },
   getById: (id: string) => driveService.getAll().find(d => d.id === id),
   save: (data: any) => {
     const all = driveService.getAll();
-    const existingIndex = all.findIndex(d => d.id === data.id);
-    if (existingIndex > -1) all[existingIndex] = data;
-    else all.push({ ...data, id: `D${Date.now()}` });
+    const targetId = data.id || `D_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const existingIndex = all.findIndex(d => d.id === targetId);
+    if (existingIndex > -1) all[existingIndex] = { ...all[existingIndex], ...data };
+    else all.push({ ...data, id: targetId });
     storageService.set("pos_drives", all);
   }
 };
@@ -102,7 +153,7 @@ export const applicationService = {
   getAll: () => storageService.get<any[]>("pos_applications", []),
   save: (data: any) => {
     const all = applicationService.getAll();
-    all.push({ ...data, id: `APP${Date.now()}`, appliedDate: new Date().toISOString() });
+    all.push({ ...data, id: `APP_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`, appliedDate: new Date().toISOString() });
     storageService.set("pos_applications", all);
   }
 };
@@ -111,44 +162,25 @@ export const offerService = {
   getAll: () => storageService.get<any[]>("pos_offers", []),
   save: (data: any) => {
     const all = offerService.getAll();
-    all.push({ ...data, id: `OFF${Date.now()}`, offerDate: new Date().toISOString() });
+    all.push({ ...data, id: `OFF_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`, offerDate: new Date().toISOString() });
     storageService.set("pos_offers", all);
   }
 };
 
 export const notificationService = {
   getAll: () => storageService.get<any[]>("pos_notifications", []),
-  add: (message: string) => {
+  add: (notif: any) => {
     const all = notificationService.getAll();
-    all.unshift({ id: `N${Date.now()}`, message, date: new Date().toISOString(), read: false });
-    storageService.set("pos_notifications", all);
-  },
-  markAllRead: () => {
-    const all = notificationService.getAll().map(n => ({...n, read: true}));
-    storageService.set("pos_notifications", all);
+    all.unshift({ ...notif, id: `NOTIF_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`, createdAt: new Date().toISOString(), isRead: false });
+    storageService.set("pos_notifications", all.slice(0, 50));
   }
 };
 
 export const auditService = {
   getAll: () => storageService.get<any[]>("pos_audit", []),
-  log: (action: string, module: string, description: string) => {
+  log: (action: string, details: string, user: string = "System") => {
     const all = auditService.getAll();
-    const userRole = isBrowser ? localStorage.getItem("userRole") || "Unknown" : "System";
-    all.unshift({
-      id: `L${Date.now()}`,
-      date: new Date().toISOString(),
-      user: userRole,
-      role: userRole,
-      action,
-      module,
-      description
-    });
-    storageService.set("pos_audit", all);
+    all.unshift({ id: `AUD_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`, action, details, user, timestamp: new Date().toISOString() });
+    storageService.set("pos_audit", all.slice(0, 100));
   }
-};
-
-export const resetDemoData = () => {
-  if (!isBrowser) return;
-  ["pos_students", "pos_companies", "pos_jds", "pos_drives", "pos_recruiters", "pos_applications", "pos_offers", "pos_team", "pos_notifications", "pos_audit"].forEach(key => localStorage.removeItem(key));
-  initializeData();
 };
