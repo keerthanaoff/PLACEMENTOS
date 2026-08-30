@@ -70,9 +70,10 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
 
     if (foundCompany) {
       // Fetch associated JDs from storageService
-      const allJds = jdService.getAll().filter(j => 
+      const allJds = jdService.getAll().filter((j: any) => 
         j.companyId === companyId || 
-        j.companyName?.toLowerCase() === foundCompany.name.toLowerCase()
+        j.companyName?.toLowerCase() === foundCompany.name.toLowerCase() ||
+        j.company?.toLowerCase() === foundCompany.name.toLowerCase()
       );
       setJds(allJds);
 
@@ -444,7 +445,7 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
                     <span className="block text-xs text-gray-400 font-mono mt-0.5">{drive.id}</span>
                   </td>
                   <td className="px-6 py-4 font-bold text-gray-900 dark:text-white">
-                    {jds.find(j => j.companyId === companyId)?.jobTitle || company.jobRoles || company.jobRole || "Software Trainee"}
+                    {jds.find(j => j.companyId === companyId || j.company?.toLowerCase() === company.name.toLowerCase())?.jobTitle || company.jobRoles || company.jobRole || "Software Trainee"}
                   </td>
                   <td className="px-6 py-4">{drive.driveDate || "2026-09-15"}</td>
                   <td className="px-6 py-4">{drive.eligibility || "60%+"}</td>
