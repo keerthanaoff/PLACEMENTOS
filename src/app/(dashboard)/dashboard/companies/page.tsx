@@ -92,6 +92,20 @@ export default function CompaniesPage() {
     loadCompanies();
   }, [viewMode]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const editId = params.get("edit");
+      if (editId && companies.length > 0) {
+        const found = companies.find(c => c.id === editId);
+        if (found) {
+          window.history.replaceState(null, "", window.location.pathname);
+          openEditModal(found);
+        }
+      }
+    }
+  }, [companies]);
+
   // Statistics Calculation
   const stats = useMemo(() => {
     const activeList = companies.filter(c => !c.archived);
@@ -891,19 +905,32 @@ export default function CompaniesPage() {
                     )}
                     <td className="px-4 py-3 font-bold text-indigo-600 dark:text-indigo-400">{comp.id}</td>
                     <td className="px-4 py-3 font-bold text-gray-900 dark:text-white">
-                      <button 
-                        onClick={() => setSelectedDetailCompany(comp)} 
+                      <Link 
+                        href={`/dashboard/companies/${comp.id}`} 
                         className="hover:underline hover:text-indigo-600 text-left font-bold"
                       >
                         {comp.name}
-                      </button>
+                      </Link>
                     </td>
                     <td className="px-4 py-3">
                       <span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300 font-semibold border border-indigo-100 dark:border-indigo-800">
                         {comp.industry}
                       </span>
                     </td>
-                    <td className="px-4 py-3">{comp.location}</td>
+                    <td className="px-4 py-3">
+                      {comp.location && comp.location !== "N/A" ? (
+                        <a 
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${comp.name} ${comp.location}`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline cursor-pointer font-bold animate-pulse-subtle"
+                        >
+                          📍 {comp.location}
+                        </a>
+                      ) : (
+                        <span className="text-gray-400 italic">Not available</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">{comp.companyType || "MNC"}</td>
                     <td className="px-4 py-3 font-bold">{comp.openPositions || 0}</td>
                     <td className="px-4 py-3 font-bold text-emerald-600 dark:text-emerald-400">{comp.salaryPackage || comp.ctc}</td>
@@ -918,13 +945,13 @@ export default function CompaniesPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right space-x-3.5">
-                      <button 
-                        onClick={() => setSelectedDetailCompany(comp)} 
+                      <Link 
+                        href={`/dashboard/companies/${comp.id}`} 
                         className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold inline-flex items-center gap-1"
                       >
                         <Eye size={13} />
                         <span>View</span>
-                      </button>
+                      </Link>
 
                       {isAuthorized && (
                         <>

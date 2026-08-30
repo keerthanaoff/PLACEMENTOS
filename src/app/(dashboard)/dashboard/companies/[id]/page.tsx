@@ -1,48 +1,110 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { 
   Building2, ArrowLeft, MapPin, Globe, ExternalLink, Calendar, 
-  Users, Award, Briefcase, FileText, CheckCircle2, TrendingUp, Edit, ChevronRight
+  Users, Award, Briefcase, FileText, CheckCircle2, Edit, ChevronRight
 } from "lucide-react";
-import { companyService, jdService, driveService, studentService } from "@/services/storageService";
-import { MOCK_COMPANIES } from "@/lib/mock-data";
+import { companyService } from "@/services/companyService";
+import { studentService } from "@/services/studentService";
+import { jdService, driveService } from "@/services/storageService";
 
 export default function CompanyDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const companyId = resolvedParams.id;
 
-  const [company, setCompany] = useState<any>(null);
+  const [company, setCompany] = useState<CompanyRecord | null>(null);
   const [jds, setJds] = useState<any[]>([]);
   const [drives, setDrives] = useState<any[]>([]);
   const [placedStudents, setPlacedStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Define CompanyRecord locally to avoid type conflicts
+  interface CompanyRecord {
+    id: string;
+    name: string;
+    location: string;
+    website: string;
+    contactPerson: string;
+    mobile: string;
+    email: string;
+    companySize: string;
+    numberOfEmployees: string;
+    industry: string;
+    ctc: string;
+    status: string;
+    approvalStatus: string;
+    dateAdded: string;
+    placementTeamMember: string;
+    recruiter: string;
+    jobRole: string;
+    jd: string;
+    jdPdf: string;
+    driveStatus: string;
+    placedStudentsCount: number;
+    placedStudentsDetails: string;
+    archived: boolean;
+
+    // Extended fields
+    companyType?: string;
+    type?: string;
+    hrName?: string;
+    hrEmail?: string;
+    hrPhone?: string;
+    description?: string;
+    jobRoles?: string;
+    requiredSkills?: string;
+    salaryPackage?: string;
+    jobType?: string;
+    openPositions?: number;
+    eligibilityCriteria?: string;
+    companyStatus?: string;
+  }
+
   useEffect(() => {
-    // Fetch company
-    let foundCompany = companyService.getById(companyId);
-    if (!foundCompany) {
-      foundCompany = MOCK_COMPANIES.find(c => c.id === companyId);
-    }
+    // Fetch company from real database key (placementos_companies)
+    const foundCompany = companyService.getCompanyById(companyId) as any as CompanyRecord;
     setCompany(foundCompany || null);
 
     if (foundCompany) {
-      // Fetch associated JDs
-      const allJds = jdService.getAll().filter(j => j.companyId === companyId);
+      // Fetch associated JDs from storageService
+      const allJds = jdService.getAll().filter(j => 
+        j.companyId === companyId || 
+        j.companyName?.toLowerCase() === foundCompany.name.toLowerCase()
+      );
       setJds(allJds);
 
-      // Fetch associated drives
-      const allDrives = driveService.getAll().filter(d => d.companyId === companyId);
+      // Fetch associated drives from storageService
+      const allDrives = driveService.getAll().filter(d => 
+        d.companyId === companyId || 
+        d.company?.toLowerCase() === foundCompany.name.toLowerCase()
+      );
       setDrives(allDrives);
 
-      // Fetch placed students (filter placed students and map to company or mock mapping)
-      const allStudents = studentService.getAll().filter(s => s.placementStatus === "PLACED");
+      // Fetch placed students from placementos_students key
+      const allStudents = studentService.getStudents().filter(s => 
+        s.placementStatus === "PLACED" && 
+        s.companyPlaced?.toLowerCase() === foundCompany.name.toLowerCase()
+      );
       setPlacedStudents(allStudents);
     }
     
     setLoading(false);
   }, [companyId]);
+
+  // Construct dynamic Google Maps search link (name + location)
+  const mapsUrl = useMemo(() => {
+    if (!company || !company.location || company.location === "N/A") return null;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${company.name} ${company.location}`)}`;
+  }, [company]);
+
+  // Website validator helper
+  const getValidWebsiteUrl = (url: string) => {
+    if (!url || url === "N/A") return null;
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    return `https://${url}`;
+  };
 
   if (loading) {
     return (
@@ -60,7 +122,7 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
           href="/dashboard/companies" 
           className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors"
         >
-          <ArrowLeft size={16} /> ← Back to Companies
+          <ArrowLeft size={16} /> Back to Companies
         </Link>
 
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-12 text-center shadow-sm">
@@ -80,17 +142,13 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
     );
   }
 
-  const mapsUrl = company.location 
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${company.name} ${company.location}`)}`
-    : null;
-
   // Demo statistics calculation
   const totalDrivesCount = drives.length || 2;
   const totalApplicantsCount = placedStudents.length * 4 + 18;
   const shortlistedCount = placedStudents.length * 2 + 6;
   const selectedCount = placedStudents.length || 3;
   const placementRate = Math.round((selectedCount / (shortlistedCount || 1)) * 100);
-  const avgPackage = jds.length > 0 ? jds[0].salary || "5.5 LPA" : "6.0 LPA";
+  const avgPackage = company.salaryPackage || company.ctc || "6.0 LPA";
 
   return (
     <div className="space-y-6">
@@ -115,9 +173,13 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button className="flex items-center gap-2 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shadow-sm">
+          {/* Redirect to main page with edit query param to reuse existing edit modal */}
+          <Link 
+            href={`/dashboard/companies?edit=${company.id}`}
+            className="flex items-center gap-2 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shadow-sm cursor-pointer"
+          >
             <Edit size={16} /> Edit Company
-          </button>
+          </Link>
           <a href="#drives" className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-4 py-2 rounded-lg text-sm font-medium border border-indigo-100 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors">
             <Calendar size={16} /> View Placement Drives
           </a>
@@ -138,21 +200,21 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{company.name}</h1>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800">
-                  {company.type || "MNC"}
+                  {company.companyType || company.type || "MNC"}
                 </span>
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex flex-wrap items-center gap-4">
                 <span>Company ID: <strong className="text-gray-700 dark:text-gray-300">{company.id}</strong></span>
                 <span>•</span>
                 <span>Industry: <strong className="text-gray-700 dark:text-gray-300">{company.industry}</strong></span>
-                {company.location && (
+                {company.location && company.location !== "N/A" && (
                   <>
                     <span>•</span>
                     <a 
                       href={mapsUrl!}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:underline font-medium cursor-pointer"
+                      className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:underline hover:text-indigo-750 font-medium cursor-pointer"
                       title="Open Google Maps location"
                     >
                       <MapPin size={14} className="text-red-500" />
@@ -166,12 +228,12 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
           </div>
 
           <div className="flex items-center gap-3">
-            {company.website ? (
+            {getValidWebsiteUrl(company.website) ? (
               <a 
-                href={company.website.startsWith("http") ? company.website : `https://${company.website}`}
+                href={getValidWebsiteUrl(company.website)!}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2.5 rounded-lg text-sm font-semibold border border-gray-200 dark:border-gray-700 transition-colors group"
+                className="flex items-center gap-2 bg-gray-55 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 px-4 py-2.5 rounded-lg text-sm font-semibold border border-gray-200 dark:border-gray-750 transition-colors group"
               >
                 <Globe size={16} className="text-indigo-500" />
                 <span>Visit Website</span>
@@ -231,31 +293,31 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
             <Building2 size={18} className="text-indigo-500" /> Company Overview
           </h2>
 
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between py-1.5 border-b border-gray-50 dark:border-gray-800">
-              <span className="text-gray-500">Company Name</span>
-              <span className="font-semibold text-gray-900 dark:text-white">{company.name}</span>
+          <div className="space-y-3 text-xs">
+            <div className="flex justify-between py-2.5 border-b border-gray-50 dark:border-gray-800">
+              <span className="text-gray-500 font-semibold">Company Name</span>
+              <span className="font-bold text-gray-900 dark:text-white">{company.name}</span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-gray-50 dark:border-gray-800">
-              <span className="text-gray-500">Company ID</span>
-              <span className="font-mono text-gray-900 dark:text-white">{company.id}</span>
+            <div className="flex justify-between py-2.5 border-b border-gray-50 dark:border-gray-800">
+              <span className="text-gray-500 font-semibold">Company ID</span>
+              <span className="font-mono font-bold text-gray-900 dark:text-white">{company.id}</span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-gray-50 dark:border-gray-800">
-              <span className="text-gray-500">Industry</span>
-              <span className="font-medium text-gray-900 dark:text-white">{company.industry}</span>
+            <div className="flex justify-between py-2.5 border-b border-gray-50 dark:border-gray-800">
+              <span className="text-gray-500 font-semibold">Industry</span>
+              <span className="font-bold text-gray-900 dark:text-white">{company.industry}</span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-gray-50 dark:border-gray-800">
-              <span className="text-gray-500">Company Type</span>
-              <span className="font-medium text-gray-900 dark:text-white">{company.type || "MNC"}</span>
+            <div className="flex justify-between py-2.5 border-b border-gray-50 dark:border-gray-800">
+              <span className="text-gray-500 font-semibold">Company Type</span>
+              <span className="font-bold text-gray-900 dark:text-white">{company.companyType || company.type || "Not available"}</span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-gray-50 dark:border-gray-800">
-              <span className="text-gray-500">Location</span>
-              {company.location ? (
+            <div className="flex justify-between py-2.5 border-b border-gray-50 dark:border-gray-800">
+              <span className="text-gray-500 font-semibold">Location</span>
+              {company.location && company.location !== "N/A" ? (
                 <a 
                   href={mapsUrl!}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                  className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
                 >
                   <MapPin size={13} className="text-red-500" />
                   <span>{company.location}</span>
@@ -264,14 +326,14 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
                 <span className="text-gray-400 italic">Not available</span>
               )}
             </div>
-            <div className="flex justify-between py-1.5 border-b border-gray-50 dark:border-gray-800">
-              <span className="text-gray-500">Official Website</span>
-              {company.website ? (
+            <div className="flex justify-between py-2.5 border-b border-gray-50 dark:border-gray-800">
+              <span className="text-gray-500 font-semibold">Official Website</span>
+              {getValidWebsiteUrl(company.website) ? (
                 <a 
-                  href={company.website.startsWith("http") ? company.website : `https://${company.website}`}
+                  href={getValidWebsiteUrl(company.website)!}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-medium text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 truncate max-w-[180px]"
+                  className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 truncate max-w-[180px]"
                 >
                   <span>{company.website}</span>
                   <ExternalLink size={12} />
@@ -279,6 +341,22 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
               ) : (
                 <span className="text-gray-400 italic">Not available</span>
               )}
+            </div>
+            <div className="flex justify-between py-2.5 border-b border-gray-50 dark:border-gray-800">
+              <span className="text-gray-500 font-semibold">HR Contact Person</span>
+              <span className="font-bold text-gray-900 dark:text-white">{company.hrName || company.contactPerson || "Not available"}</span>
+            </div>
+            <div className="flex justify-between py-2.5 border-b border-gray-50 dark:border-gray-800">
+              <span className="text-gray-500 font-semibold">HR Contact Email</span>
+              <span className="font-bold text-gray-900 dark:text-white">{company.hrEmail || company.email || "Not available"}</span>
+            </div>
+            <div className="flex justify-between py-2.5 border-b border-gray-50 dark:border-gray-800">
+              <span className="text-gray-500 font-semibold">HR Contact Phone</span>
+              <span className="font-bold text-gray-900 dark:text-white">{company.hrPhone || company.mobile || "Not available"}</span>
+            </div>
+            <div className="flex justify-between py-2.5 border-b border-gray-50 dark:border-gray-800">
+              <span className="text-gray-500 font-semibold">Eligibility Criteria</span>
+              <span className="font-bold text-gray-900 dark:text-white">{company.eligibilityCriteria || "Not available"}</span>
             </div>
           </div>
         </div>
@@ -295,13 +373,13 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <div>
                     <h3 className="font-bold text-gray-900 dark:text-white text-base">{jd.jobTitle}</h3>
-                    <p className="text-xs text-gray-500">Department: {jd.department} • Qualifications: {jd.qualifications}</p>
+                    <p className="text-xs text-gray-500">Department: {jd.department || "All departments"} • Required: {jd.qualifications || "Any Graduate"}</p>
                   </div>
                   <span className="px-3 py-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full font-bold text-sm w-fit">
                     {jd.salary || "CTC TBD"}
                   </span>
                 </div>
-                <div className="pt-2 border-t border-gray-200 dark:border-gray-700/60 flex flex-wrap items-center justify-between text-xs text-gray-600 dark:text-gray-400 gap-2">
+                <div className="pt-2 border-t border-gray-200 dark:border-gray-700/60 flex flex-wrap items-center justify-between text-xs text-gray-600 dark:text-gray-400 gap-2 font-semibold">
                   <span><strong>Required Skills:</strong> {jd.skillsRequired || "Java, Python, SQL"}</span>
                   <span className="font-mono text-gray-400">{jd.id}</span>
                 </div>
@@ -309,23 +387,33 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
             ))}
 
             {jds.length === 0 && (
-              <div className="p-4 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/40 space-y-2">
+              <div className="p-4 rounded-xl border border-gray-150 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/40 space-y-3">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-bold text-gray-900 dark:text-white text-base">Software Development Engineer / Analyst</h3>
-                    <p className="text-xs text-gray-500">Department: CSE / IT / ECE • Qualifications: B.E. / B.Tech</p>
+                    <h3 className="font-bold text-gray-900 dark:text-white text-base">{company.jobRoles || company.jobRole || "Software Trainee"}</h3>
+                    <p className="text-xs text-gray-500">Department: Engineering & Tech • Eligibility: {company.eligibilityCriteria || "60%+"}</p>
                   </div>
                   <span className="px-3 py-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full font-bold text-sm">
                     {avgPackage}
                   </span>
                 </div>
-                <p className="text-xs text-gray-600 dark:text-gray-400 pt-2 border-t border-gray-200 dark:border-gray-700/60">
-                  <strong>Required Skills:</strong> Java, Data Structures, SQL, Problem Solving
+                <p className="text-xs text-gray-600 dark:text-gray-400 pt-2 border-t border-gray-200 dark:border-gray-700/60 font-semibold">
+                  <strong>Required Skills:</strong> {company.requiredSkills || "Java, Data Structures, SQL"}
                 </p>
               </div>
             )}
           </div>
         </div>
+      </div>
+
+      {/* Description card */}
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-6 shadow-sm">
+        <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+          <Building2 size={18} className="text-indigo-500" /> About {company.name}
+        </h2>
+        <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 leading-5">
+          {company.description || company.jd || "No additional description available."}
+        </p>
       </div>
 
       {/* Placement Drives Table */}
@@ -337,8 +425,8 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
           <span className="text-xs text-gray-500 font-medium">{totalDrivesCount} Drive(s) Conducted</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 font-medium border-b border-gray-200 dark:border-gray-800">
+          <table className="w-full text-xs text-left">
+            <thead className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 uppercase tracking-wider">
               <tr>
                 <th className="px-6 py-3.5">Drive ID / Type</th>
                 <th className="px-6 py-3.5">Target Job Role</th>
@@ -347,15 +435,15 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
                 <th className="px-6 py-3.5 text-right">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-800 text-gray-700 dark:text-gray-300">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-800 text-gray-700 dark:text-gray-300 font-medium">
               {drives.map((drive) => (
                 <tr key={drive.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                  <td className="px-6 py-4 font-medium">
-                    <span className="font-semibold text-gray-900 dark:text-white">{drive.driveType || "Campus Drive"}</span>
-                    <span className="block text-xs text-gray-400 font-mono">{drive.id}</span>
+                  <td className="px-6 py-4">
+                    <span className="font-bold text-gray-900 dark:text-white">{drive.driveType || "Campus Drive"}</span>
+                    <span className="block text-xs text-gray-400 font-mono mt-0.5">{drive.id}</span>
                   </td>
-                  <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
-                    {jds.find(j => j.companyId === companyId)?.jobTitle || "Software Trainee"}
+                  <td className="px-6 py-4 font-bold text-gray-900 dark:text-white">
+                    {jds.find(j => j.companyId === companyId)?.jobTitle || company.jobRoles || company.jobRole || "Software Trainee"}
                   </td>
                   <td className="px-6 py-4">{drive.driveDate || "2026-09-15"}</td>
                   <td className="px-6 py-4">{drive.eligibility || "60%+"}</td>
@@ -369,15 +457,15 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
 
               {drives.length === 0 && (
                 <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                  <td className="px-6 py-4 font-medium">
-                    <span className="font-semibold text-gray-900 dark:text-white">Campus Recruitment Drive</span>
-                    <span className="block text-xs text-gray-400 font-mono">D-MOCK-{company.id}</span>
+                  <td className="px-6 py-4">
+                    <span className="font-bold text-gray-900 dark:text-white">Campus Recruitment Drive</span>
+                    <span className="block text-[10px] text-gray-400 font-mono mt-0.5">D-MOCK-{company.id}</span>
                   </td>
-                  <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">Software Engineer Trainee</td>
+                  <td className="px-6 py-4 font-bold text-gray-900 dark:text-white">{company.jobRoles || company.jobRole || "Software Engineer Trainee"}</td>
                   <td className="px-6 py-4">2026-09-20</td>
-                  <td className="px-6 py-4">UG 60%+ No Standing Arrears</td>
+                  <td className="px-6 py-4">{company.eligibilityCriteria || "UG 60%+ No Standing Arrears"}</td>
                   <td className="px-6 py-4 text-right">
-                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                    <span className="px-2.5 py-1 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border border-emerald-200">
                       Upcoming
                     </span>
                   </td>
@@ -394,11 +482,11 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
           <h2 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <Award size={18} className="text-emerald-500" /> Students Placed ({placedStudents.length})
           </h2>
-          <span className="text-xs text-gray-500 font-medium">Click student name to view complete profile</span>
+          <span className="text-xs text-gray-550 font-semibold bg-gray-50 dark:bg-gray-800 px-2.5 py-1 border border-gray-150 dark:border-gray-850 rounded-xl">Click student name to view complete profile</span>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 font-medium border-b border-gray-200 dark:border-gray-800">
+          <table className="w-full text-xs text-left">
+            <thead className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400 font-bold border-b border-gray-200 dark:border-gray-800 uppercase tracking-wider">
               <tr>
                 <th className="px-6 py-3.5">Student</th>
                 <th className="px-6 py-3.5">Roll Number</th>
@@ -408,13 +496,13 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
                 <th className="px-6 py-3.5 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-800 text-gray-700 dark:text-gray-300">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-800 text-gray-700 dark:text-gray-300 font-medium">
               {placedStudents.map((student) => (
                 <tr key={student.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                   <td className="px-6 py-4 font-semibold">
                     <Link 
                       href={`/dashboard/students/${student.id}`}
-                      className="text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-2"
+                      className="text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-2 font-bold"
                     >
                       <div className="w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center text-xs font-bold text-indigo-600 dark:text-indigo-400">
                         {student.name.charAt(0)}
@@ -423,13 +511,13 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
                     </Link>
                   </td>
                   <td className="px-6 py-4 font-mono text-gray-500">{student.rollNumber}</td>
-                  <td className="px-6 py-4 font-medium">{student.department}</td>
-                  <td className="px-6 py-4">{jds[0]?.jobTitle || "Graduate Engineer Trainee"}</td>
-                  <td className="px-6 py-4 font-bold text-emerald-600 dark:text-emerald-400">{avgPackage}</td>
+                  <td className="px-6 py-4 font-bold">{student.department}</td>
+                  <td className="px-6 py-4">{student.roleOffered || company.jobRoles || company.jobRole || "Graduate Engineer Trainee"}</td>
+                  <td className="px-6 py-4 font-bold text-emerald-600 dark:text-emerald-400">{student.packageCtc || avgPackage}</td>
                   <td className="px-6 py-4 text-right">
                     <Link 
                       href={`/dashboard/students/${student.id}`}
-                      className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                      className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
                     >
                       View Profile →
                     </Link>
@@ -439,7 +527,7 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
 
               {placedStudents.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400 font-medium">
                     No placed student records attached yet.
                   </td>
                 </tr>
