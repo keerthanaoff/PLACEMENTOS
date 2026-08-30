@@ -122,25 +122,58 @@ export const resumeAnalysisService = {
   },
 
   calculateJDMatch(student: any, jd: any, baseResult: AnalysisResult): AnalysisResult {
-    // Deterministic mock JD match:
-    // Base it on department match + base score + a stable hash of the JD id to give variety
     const baseMatch = baseResult.overallScore;
     
     let jdBonus = 0;
-    if (jd && jd.jobTitle && student.department) {
-      const titleLower = jd.jobTitle.toLowerCase();
+    const strengths = [...baseResult.strengths];
+    const weaknesses = [...baseResult.weaknesses];
+    
+    // Skill matching if JD has skills
+    let matchedSkills = 0;
+    if (jd && jd.skills && jd.skills.length > 0) {
+      // Mock deterministic check: student dept/github implies certain skills
+      const deptLower = (student.department || "").toLowerCase();
+      const techStudent = deptLower.includes("cse") || deptLower.includes("it");
+      
+      jd.skills.forEach((skill: string) => {
+        // If they are a tech student, they have a higher chance of matching tech skills
+        const hasSkill = techStudent ? 
+          (student.id.length + skill.length) % 2 === 0 : 
+          (student.id.length + skill.length) % 4 === 0;
+          
+        if (hasSkill) matchedSkills++;
+      });
+      
+      const skillMatchPercent = matchedSkills / jd.skills.length;
+      if (skillMatchPercent > 0.7) {
+        jdBonus += 15;
+        strengths.push("Strong match for required skills");
+      } else if (skillMatchPercent > 0.4) {
+        jdBonus += 5;
+        strengths.push("Partial match for required skills");
+      } else {
+        jdBonus -= 10;
+        weaknesses.push("Missing core skills required by the JD");
+      }
+    } else if (jd && jd.title && student.department) {
+      const titleLower = jd.title.toLowerCase();
       const deptLower = student.department.toLowerCase();
       if ((titleLower.includes("software") || titleLower.includes("developer") || titleLower.includes("engineer")) && (deptLower.includes("cse") || deptLower.includes("it"))) {
         jdBonus += 5;
+        strengths.push("Academic background aligns with role");
       }
     }
     
-    // Generate a stable pseudo-random modifier between -10 and +5 based on student ID length + JD ID length
-    const modifier = jd ? ((student.id.length + jd.id.length) % 15) - 10 : 0;
+    // Generate a stable pseudo-random modifier between -5 and +5
+    const modifier = jd ? ((student.id.length + (jd.id?.length || 0)) % 11) - 5 : 0;
+    
+    const finalScore = Math.min(Math.max(baseMatch + jdBonus + modifier, 0), 100);
     
     return {
       ...baseResult,
-      jdMatchScore: Math.min(Math.max(baseMatch + jdBonus + modifier, 0), 100)
+      strengths,
+      weaknesses,
+      jdMatchScore: finalScore
     };
   }
 };

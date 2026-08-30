@@ -23,7 +23,7 @@ const allNavItems = [
   { name: "Recruiters", href: "/dashboard/recruiters", icon: UserSquare2, roles: ["ADMIN", "MANAGER"] },
   { name: "Placement Analytics", href: "/dashboard/reports", icon: BarChart3, roles: ["ADMIN", "MANAGER", "LEAD"] },
   { name: "AI Resume", href: "/dashboard/ai-resume", icon: BrainCircuit, roles: ["ADMIN", "MANAGER", "LEAD"] },
-  { name: "Approval Center", href: "/dashboard/approvals", icon: CheckCircle2, roles: ["ADMIN"] },
+
   { name: "Settings", href: "/dashboard/settings", icon: Settings, roles: ["ADMIN"] },
 ];
 

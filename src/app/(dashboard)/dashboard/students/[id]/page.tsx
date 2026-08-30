@@ -1,15 +1,18 @@
 "use client";
 
-import { use } from "react";
+import { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { 
   ArrowLeft, Mail, Phone, MapPin, Calendar, 
-  FileText, ExternalLink, Award, Briefcase, BookOpen, User, Globe, CheckCircle2, Video, Camera
+  FileText, ExternalLink, Award, Briefcase, BookOpen, User, Globe, CheckCircle2, Video, Camera,
+  Star, ChevronRight, TrendingUp
 } from "lucide-react";
 import { studentService } from "@/services/studentService";
+import { jdService, StoredJD } from "@/services/jdService";
 
 export default function StudentProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
+  const [recommendedJobs, setRecommendedJobs] = useState<Array<{ jd: StoredJD; score: number }>>([]);
   
   const student = studentService.getStudentById(resolvedParams.id) || {
     id: resolvedParams.id,
@@ -44,6 +47,18 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
     resumeScore: "N/A",
     archived: false
   };
+
+  useEffect(() => {
+    const jds = jdService.getAll();
+    if (jds.length > 0 && student) {
+      const scored = jds.map(jd => ({
+        jd,
+        score: jdService.calculateMatch(student, jd).overallScore,
+      }));
+      scored.sort((a, b) => b.score - a.score);
+      setRecommendedJobs(scored.slice(0, 5));
+    }
+  }, [resolvedParams.id]);
 
   const hasPersonal = student.name || student.rollNumber || student.gender || student.location || student.email || student.mobile;
   const hasEducation = student.education || student.sslc || student.hsc || student.ug || student.pg || student.graduationYear;
@@ -292,6 +307,54 @@ export default function StudentProfilePage({ params }: { params: Promise<{ id: s
           </div>
         )}
       </div>
+
+      {/* RECOMMENDED JOB OPPORTUNITIES */}
+      {recommendedJobs.length > 0 && (
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm">
+          <h2 className="text-sm font-extrabold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2 border-b border-gray-100 dark:border-gray-800 pb-3 mb-4">
+            <Star size={16} />
+            Recommended Job Opportunities
+          </h2>
+          <div className="space-y-3">
+            {recommendedJobs.map(({ jd, score }, i) => (
+              <div key={jd.id} className="flex items-center justify-between gap-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-colors">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 flex items-center justify-center text-[10px] font-extrabold shrink-0">
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <Link href={`/dashboard/jds/${jd.id}`} className="text-sm font-bold text-gray-900 dark:text-white hover:text-indigo-600 truncate block">
+                      {jd.jobTitle}
+                    </Link>
+                    <p className="text-xs text-gray-500">{jd.company} • {jd.location}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <div className="text-right">
+                    <span className={`text-lg font-extrabold ${
+                      score >= 90 ? "text-emerald-600 dark:text-emerald-400" :
+                      score >= 75 ? "text-blue-600 dark:text-blue-400" :
+                      score >= 60 ? "text-amber-600 dark:text-amber-400" :
+                      "text-red-600 dark:text-red-400"
+                    }`}>
+                      {score}%
+                    </span>
+                    <p className="text-[10px] text-gray-400">Match</p>
+                  </div>
+                  <Link href={`/dashboard/jds/${jd.id}`} className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 hover:bg-indigo-100 transition-colors">
+                    <ChevronRight size={14} />
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 text-center">
+            <Link href="/dashboard/ai-resume" className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
+              <TrendingUp size={12} /> View Full AI Analysis
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

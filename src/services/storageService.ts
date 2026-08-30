@@ -40,6 +40,115 @@ const sanitizeAndUnique = (items: any[], prefix: string): any[] => {
   });
 };
 
+// Initial Seed Drives Data
+const INITIAL_DRIVES_DATA = [
+  {
+    id: "D001",
+    companyId: "C001",
+    company: "TCS",
+    title: "Software Engineer",
+    jobRole: "Software Engineer",
+    industry: "IT Services & Consulting",
+    location: "Chennai",
+    eligibility: "60%+",
+    minCgpa: "6.0",
+    package: "6.0 LPA",
+    openings: 50,
+    driveDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    applicationDeadline: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    driveType: "Campus Drive",
+    workMode: "On-site",
+    status: "Active",
+    applicantsCount: 42,
+    shortlistedCount: 18,
+    selectedCount: 6
+  },
+  {
+    id: "D002",
+    companyId: "C002",
+    company: "Infosys",
+    title: "Systems Engineer",
+    jobRole: "Systems Engineer",
+    industry: "IT Services & Digital Transformation",
+    location: "Bengaluru",
+    eligibility: "65%+",
+    minCgpa: "6.5",
+    package: "6.5 LPA",
+    openings: 40,
+    driveDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    applicationDeadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    driveType: "Pool Drive",
+    workMode: "Hybrid",
+    status: "Upcoming",
+    applicantsCount: 35,
+    shortlistedCount: 15,
+    selectedCount: 5
+  },
+  {
+    id: "D003",
+    companyId: "C003",
+    company: "CodePulse",
+    title: "AI/ML Engineer",
+    jobRole: "AI/ML Engineer",
+    industry: "Artificial Intelligence & Software",
+    location: "Chennai",
+    eligibility: "70%+",
+    minCgpa: "7.0",
+    package: "8.0 LPA",
+    openings: 10,
+    driveDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    applicationDeadline: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    driveType: "Campus Drive",
+    workMode: "Hybrid",
+    status: "Active",
+    applicantsCount: 28,
+    shortlistedCount: 12,
+    selectedCount: 4
+  },
+  {
+    id: "D004",
+    companyId: "C004",
+    company: "Krea",
+    title: "Full Stack Developer",
+    jobRole: "Full Stack Developer",
+    industry: "AI, SaaS & Product Technology",
+    location: "Bengaluru",
+    eligibility: "65%+",
+    minCgpa: "6.5",
+    package: "7.5 LPA",
+    openings: 15,
+    driveDate: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    applicationDeadline: new Date(Date.now() - 18 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    driveType: "Campus Drive",
+    workMode: "Remote",
+    status: "Interview",
+    applicantsCount: 31,
+    shortlistedCount: 14,
+    selectedCount: 5
+  },
+  {
+    id: "D005",
+    companyId: "C005",
+    company: "Data Edge",
+    title: "Data Analyst",
+    jobRole: "Data Analyst",
+    industry: "Data Analytics & AI",
+    location: "Hyderabad",
+    eligibility: "60%+",
+    minCgpa: "6.0",
+    package: "7.0 LPA",
+    openings: 20,
+    driveDate: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    applicationDeadline: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    driveType: "Off-Campus",
+    workMode: "On-site",
+    status: "Upcoming",
+    applicantsCount: 25,
+    shortlistedCount: 10,
+    selectedCount: 3
+  }
+];
+
 // Seed function to initialize demo data if missing
 export const initializeData = () => {
   if (!isBrowser) return;
@@ -48,7 +157,7 @@ export const initializeData = () => {
   storageService.set("pos_students", []);
   storageService.set("pos_companies", []);
   if (!localStorage.getItem("pos_jds")) storageService.set("pos_jds", []);
-  if (!localStorage.getItem("pos_drives")) storageService.set("pos_drives", []);
+  if (!localStorage.getItem("pos_drives")) storageService.set("pos_drives", INITIAL_DRIVES_DATA);
   if (!localStorage.getItem("pos_recruiters")) storageService.set("pos_recruiters", []);
 };
 
@@ -57,7 +166,7 @@ export const resetDemoData = () => {
   storageService.set("pos_students", []);
   storageService.set("pos_companies", []);
   storageService.set("pos_jds", []);
-  storageService.set("pos_drives", []);
+  storageService.set("pos_drives", INITIAL_DRIVES_DATA);
   storageService.set("pos_recruiters", []);
   storageService.set("pos_applications", []);
   storageService.set("pos_offers", []);

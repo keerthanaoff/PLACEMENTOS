@@ -130,7 +130,7 @@ export const authService = {
 
     // MANAGER permissions
     if (normalizedRole === "MANAGER") {
-      const denied = ["/dashboard/audit-logs", "/dashboard/settings", "/dashboard/approvals", "/dashboard/team"];
+      const denied = ["/dashboard/audit-logs", "/dashboard/settings", "/dashboard/team"];
       return !denied.some(route => pathname === route || pathname.startsWith(route + "/"));
     }
 
@@ -140,7 +140,7 @@ export const authService = {
         "/dashboard/jds",
         "/dashboard/recruiters",
         "/dashboard/team",
-        "/dashboard/approvals",
+
         "/dashboard/audit-logs",
         "/dashboard/settings"
       ];
