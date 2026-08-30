@@ -20,16 +20,29 @@ export default function AdminDashboard() {
     const companies = companyService.getCompanies();
     const drives = driveService.getAll();
 
+    // Calculate dynamic average CTC package from placed students
+    const placedStudents = students.filter(s => s.placementStatus === "PLACED");
+    let avg = 6.0;
+    if (placedStudents.length > 0) {
+      const ctcValues = placedStudents.map(s => {
+        const val = parseFloat(s.packageCtc || "");
+        return isNaN(val) ? 0 : val;
+      }).filter(val => val > 0);
+      if (ctcValues.length > 0) {
+        avg = ctcValues.reduce((sum, val) => sum + val, 0) / ctcValues.length;
+      }
+    }
+
     setStats({
       students: students.length,
       companies: companies.length,
-      cold: companies.filter(c => c.status === "COLD").length,
-      warm: companies.filter(c => c.status === "WARM").length,
-      hot: companies.filter(c => c.status === "HOT").length,
-      drivesCompleted: companies.filter(c => c.status === "DRIVE_COMPLETED").length,
+      cold: companies.filter(c => (c.companyStatus || c.status) === "COLD").length,
+      warm: companies.filter(c => (c.companyStatus || c.status) === "WARM").length,
+      hot: companies.filter(c => (c.companyStatus || c.status) === "HOT").length,
+      drivesCompleted: companies.filter(c => (c.companyStatus || c.status) === "DRIVE_COMPLETED").length,
       drives: drives.length || companies.length,
-      placed: students.filter(s => s.placementStatus === "PLACED").length,
-      avgCtc: "12.6 LPA"
+      placed: placedStudents.length,
+      avgCtc: `${avg.toFixed(1)} LPA`
     });
   }, []);
 

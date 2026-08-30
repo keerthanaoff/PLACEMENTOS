@@ -168,6 +168,31 @@ export const offerService = {
   }
 };
 
+export const recruiterService = {
+  getAll: () => {
+    const raw = storageService.get<any[]>("pos_recruiters", []);
+    if (raw.length === 0 && isBrowser) {
+      const initial = [
+        { id: "RCR001", name: "Ananya Sharma", companyId: "C001", designation: "Lead HR Campus Relations", email: "ananya.sharma@tcs.com", mobile: "+91 98765 43210", location: "Chennai", activeDrives: 1, lastActivity: "2026-08-25", status: "ACTIVE" },
+        { id: "RCR002", name: "Rohan Das", companyId: "C002", designation: "Talent Acquisition Specialist", email: "rohan.das@infosys.com", mobile: "+91 87654 32109", location: "Bengaluru", activeDrives: 1, lastActivity: "2026-08-28", status: "ACTIVE" },
+        { id: "RCR003", name: "Priya Nair", companyId: "C004", designation: "HR Director", email: "priya.nair@zoho.com", mobile: "+91 76543 21098", location: "Chennai", activeDrives: 2, lastActivity: "2026-08-29", status: "ACTIVE" },
+      ];
+      storageService.set("pos_recruiters", initial);
+      return initial;
+    }
+    return sanitizeAndUnique(raw, "RCR");
+  },
+  getById: (id: string) => recruiterService.getAll().find(r => r.id === id),
+  save: (data: any) => {
+    const all = recruiterService.getAll();
+    const targetId = data.id || `RCR_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const existingIndex = all.findIndex(r => r.id === targetId);
+    if (existingIndex > -1) all[existingIndex] = { ...all[existingIndex], ...data };
+    else all.push({ ...data, id: targetId });
+    storageService.set("pos_recruiters", all);
+  }
+};
+
 export const notificationService = {
   getAll: () => storageService.get<any[]>("pos_notifications", []),
   add: (notif: any) => {
