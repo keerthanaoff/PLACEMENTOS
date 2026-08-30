@@ -17,7 +17,7 @@ import { authService, UserSession } from "@/services/authService";
 const allNavItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard, roles: ["ADMIN", "MANAGER", "LEAD"] },
   { name: "Student Intelligence", href: "/dashboard/students", icon: Users, roles: ["ADMIN", "MANAGER", "LEAD"] },
-  { name: "Company Intelligence", href: "/dashboard/companies", icon: Building2, roles: ["ADMIN", "MANAGER"] },
+  { name: "Company Intelligence", href: "/dashboard/companies", icon: Building2, roles: ["ADMIN", "MANAGER", "LEAD"] },
   { name: "Placement Drives", href: "/dashboard/drives", icon: CalendarDays, roles: ["ADMIN", "MANAGER", "LEAD"] },
   { name: "JD Intelligence", href: "/dashboard/jds", icon: FileText, roles: ["ADMIN", "MANAGER"] },
   { name: "Recruiters", href: "/dashboard/recruiters", icon: UserSquare2, roles: ["ADMIN", "MANAGER"] },

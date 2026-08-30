@@ -22,7 +22,22 @@ export interface CompanyRecord {
   placedStudentsCount: number;
   placedStudentsDetails: string;
   archived: boolean;
+  
+  // Extended fields
+  companyType?: string;
+  hrName?: string;
+  hrEmail?: string;
+  hrPhone?: string;
+  description?: string;
+  jobRoles?: string;
+  requiredSkills?: string;
+  salaryPackage?: string;
+  jobType?: string;
+  openPositions?: number;
+  eligibilityCriteria?: string;
+  companyStatus?: string;
 }
+
 
 export const INITIAL_COMPANY_CSV_DATA: CompanyRecord[] = [
   {

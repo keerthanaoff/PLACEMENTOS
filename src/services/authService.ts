@@ -137,7 +137,6 @@ export const authService = {
     // LEAD permissions
     if (normalizedRole === "LEAD") {
       const denied = [
-        "/dashboard/companies",
         "/dashboard/jds",
         "/dashboard/recruiters",
         "/dashboard/team",

@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
-import { studentService, companyService, driveService } from "@/services/storageService";
+import { studentService, driveService } from "@/services/storageService";
+import { companyService } from "@/services/companyService";
 
 export interface ParsedRow {
   rowNumber: number;
@@ -90,21 +91,43 @@ const STUDENT_FIELD_LABELS: Record<string, string> = {
 
 // --- COMPANY ALIASES ---
 const COMPANY_ALIASES: Record<string, string[]> = {
-  company_name: ["company_name", "company", "name", "organization", "company_title"],
-  industry: ["industry", "domain", "sector", "category"],
-  tier: ["tier", "company_tier", "level"],
-  location: ["location", "city", "headquarters", "address"],
-  website: ["website", "url", "company_website"],
-  ctc: ["ctc", "salary", "package", "lpa", "avg_ctc"]
+  id: ["company_id", "companyid", "company_id_no", "id", "company_code", "companycode"],
+  name: ["company_name", "companyname", "company", "name", "organization", "company_title"],
+  industry: ["industry", "domain", "sector", "category", "company_industry", "companyindustry", "company_sector"],
+  location: ["location", "city", "headquarters", "address", "company_location", "officelocation", "office_location"],
+  website: ["website", "url", "company_website", "website_url", "companywebsite", "websiteurl"],
+  companyType: ["company_type", "companytype", "type", "organization_type", "organizationtype"],
+  hrName: ["hr_name", "hrname", "recruiter_name", "recruitername", "contact_person", "contactperson"],
+  hrEmail: ["hr_email", "hremail", "hr_email_id", "hremailid", "recruiter_email", "recruiteremail"],
+  hrPhone: ["hr_phone", "hrphone", "phone", "mobile", "contact_number", "contactnumber"],
+  description: ["company_description", "companydescription", "description", "about"],
+  jobRoles: ["job_roles", "jobroles", "roles", "job_role", "jobrole", "positions"],
+  requiredSkills: ["required_skills", "requiredskills", "skills", "technical_skills", "technicalskills"],
+  salaryPackage: ["salary_package", "salarypackage", "salary", "ctc", "package"],
+  jobType: ["job_type", "jobtype", "type_of_job", "typeofjob"],
+  openPositions: ["open_positions", "openpositions", "vacancies", "vacancy", "number_of_positions", "numberofpositions"],
+  eligibilityCriteria: ["eligibility_criteria", "eligibilitycriteria", "eligibility", "criteria"],
+  companyStatus: ["company_status", "companystatus", "status"]
 };
 
 const COMPANY_FIELD_LABELS: Record<string, string> = {
-  company_name: "Company Name",
+  id: "Company ID",
+  name: "Company Name",
   industry: "Industry",
-  tier: "Tier",
   location: "Location",
   website: "Website",
-  ctc: "CTC Package"
+  companyType: "Company Type",
+  hrName: "HR Name",
+  hrEmail: "HR Email",
+  hrPhone: "HR Phone",
+  description: "Description",
+  jobRoles: "Job Roles",
+  requiredSkills: "Required Skills",
+  salaryPackage: "Salary Package",
+  jobType: "Job Type",
+  openPositions: "Open Positions",
+  eligibilityCriteria: "Eligibility Criteria",
+  companyStatus: "Company Status"
 };
 
 // --- DRIVE ALIASES ---
@@ -315,14 +338,16 @@ export const parseCompanyExcelOrCsv = (binaryData: string, fileName: string): Im
 
   const { headerRowIndex, colIndexToField, colIndexToRawName, detectedColumns } = detectHeaderRowAndMap(sheetRows, COMPANY_ALIASES, COMPANY_FIELD_LABELS);
 
-  const existingCompanies = companyService.getAll();
-  const dbNames = new Set(existingCompanies.map(c => normalizeHeader(c.name)));
-  const fileNames = new Set<string>();
+  const existingCompanies = companyService.getCompanies();
+  const dbIds = new Set(existingCompanies.map(c => String(c.id).toLowerCase().trim()));
+  const fileIds = new Set<string>();
 
   const allRows: ParsedRow[] = [];
   const validRows: ParsedRow[] = [];
   const duplicateRows: ParsedRow[] = [];
   const invalidRows: ParsedRow[] = [];
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
   for (let r = headerRowIndex + 1; r < sheetRows.length; r++) {
     const rowArray = sheetRows[r];
@@ -339,45 +364,88 @@ export const parseCompanyExcelOrCsv = (binaryData: string, fileName: string): Im
       if (fieldKey) rowObj[fieldKey] = cellStr;
     });
 
-    const companyName = (rowObj["company_name"] || "").trim();
-    const industry = rowObj["industry"] || "IT Services";
-    const tier = rowObj["tier"] || "Tier 1";
-    const location = rowObj["location"] || "Bangalore, India";
+    const companyId = (rowObj["id"] || "").trim();
+    const companyName = (rowObj["name"] || "").trim();
+    const industry = rowObj["industry"] || "Software & Technology";
+    const location = rowObj["location"] || "N/A";
     const website = rowObj["website"] || "";
-    const ctc = rowObj["ctc"] || "7 LPA";
+    const companyType = rowObj["companyType"] || "MNC";
+    const hrName = rowObj["hrName"] || "N/A";
+    const hrEmail = rowObj["hrEmail"] || "";
+    const hrPhone = rowObj["hrPhone"] || "N/A";
+    const description = rowObj["description"] || "N/A";
+    const jobRoles = rowObj["jobRoles"] || "N/A";
+    const requiredSkills = rowObj["requiredSkills"] || "N/A";
+    const salaryPackage = rowObj["salaryPackage"] || "N/A";
+    const jobType = rowObj["jobType"] || "Full Time";
+    const openPositionsStr = rowObj["openPositions"] || "0";
+    const eligibilityCriteria = rowObj["eligibilityCriteria"] || "N/A";
+    const companyStatus = rowObj["companyStatus"] || "COLD";
 
-    const normName = normalizeHeader(companyName);
+    const normId = companyId.toLowerCase();
     const rowNumber = r + 1;
 
     let rowStatus: "VALID" | "DUPLICATE" | "INVALID" = "VALID";
     let reason = "Valid company record";
 
-    if (!companyName) {
+    if (!companyId) {
+      rowStatus = "INVALID";
+      reason = `Row ${rowNumber}: Company ID is missing` + (companyName ? ` for "${companyName}"` : "");
+    } else if (!companyName) {
       rowStatus = "INVALID";
       reason = `Row ${rowNumber}: Company Name is missing`;
-    } else if (dbNames.has(normName)) {
+    } else if (hrEmail && !emailRegex.test(hrEmail)) {
+      rowStatus = "INVALID";
+      reason = `Row ${rowNumber}: HR Email "${hrEmail}" is invalid`;
+    } else if (website && (!website.includes(".") || website.length < 4)) {
+      rowStatus = "INVALID";
+      reason = `Row ${rowNumber}: Website URL "${website}" is invalid`;
+    } else if (openPositionsStr && isNaN(Number(openPositionsStr))) {
+      rowStatus = "INVALID";
+      reason = `Row ${rowNumber}: Open Positions "${openPositionsStr}" must be a non-negative number`;
+    } else if (openPositionsStr && Number(openPositionsStr) < 0) {
+      rowStatus = "INVALID";
+      reason = `Row ${rowNumber}: Open Positions "${openPositionsStr}" must be a non-negative number`;
+    } else if (salaryPackage && parseFloat(salaryPackage) < 0) {
+      rowStatus = "INVALID";
+      reason = `Row ${rowNumber}: Salary Package "${salaryPackage}" is invalid`;
+    } else if (dbIds.has(normId)) {
       rowStatus = "DUPLICATE";
-      reason = `Company "${companyName}" already exists.`;
-    } else if (fileNames.has(normName)) {
+      reason = `Row ${rowNumber}: Company ID "${companyId}" already exists.`;
+    } else if (fileIds.has(normId)) {
       rowStatus = "DUPLICATE";
-      reason = `Duplicate Company "${companyName}" in file.`;
+      reason = `Row ${rowNumber}: Duplicate Company ID "${companyId}" in file.`;
     } else {
-      fileNames.add(normName);
+      fileIds.add(normId);
     }
+
+    const openPositions = parseInt(openPositionsStr) || 0;
 
     const parsedRow: ParsedRow = {
       rowNumber,
       status: rowStatus,
       reason,
       data: {
+        id: companyId,
         name: companyName,
         industry,
-        tier,
         location,
         website: website.startsWith("http") ? website : website ? `https://${website}` : "",
-        ctc,
-        status: "WARM",
-        approvalStatus: "APPROVED"
+        companyType,
+        hrName,
+        hrEmail,
+        hrPhone,
+        description,
+        jobRoles,
+        requiredSkills,
+        salaryPackage,
+        jobType,
+        openPositions,
+        eligibilityCriteria,
+        companyStatus,
+        status: companyStatus || "COLD",
+        approvalStatus: "APPROVED",
+        archived: false
       },
       rawRow: rawObj
     };

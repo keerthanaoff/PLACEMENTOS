@@ -81,7 +81,21 @@ export const companyService = {
       driveStatus: company.driveStatus || "Scheduled",
       placedStudentsCount: company.placedStudentsCount || 0,
       placedStudentsDetails: company.placedStudentsDetails || "N/A",
-      archived: false
+      archived: false,
+      
+      // Extended fields
+      companyType: company.companyType || "N/A",
+      hrName: company.hrName || company.contactPerson || "N/A",
+      hrEmail: company.hrEmail || company.email || "N/A",
+      hrPhone: company.hrPhone || company.mobile || "N/A",
+      description: company.description || company.jd || "N/A",
+      jobRoles: company.jobRoles || company.jobRole || "N/A",
+      requiredSkills: company.requiredSkills || "N/A",
+      salaryPackage: company.salaryPackage || company.ctc || "N/A",
+      jobType: company.jobType || "N/A",
+      openPositions: company.openPositions || 0,
+      eligibilityCriteria: company.eligibilityCriteria || "N/A",
+      companyStatus: company.companyStatus || company.status || "COLD"
     };
 
     all.unshift(newCompany);
@@ -189,17 +203,20 @@ export const companyService = {
     return result;
   },
 
-  importCompanies: (incoming: CompanyRecord[]): { imported: number; duplicates: number; invalid: number } => {
+  importCompanies: (incoming: CompanyRecord[], overwrite: boolean = false): { imported: number; duplicates: number; invalid: number; updated: number } => {
     const existing = getLocalStorage();
-    const existingSet = new Set<string>();
+    const existingMap = new Map<string, CompanyRecord>();
+    
     existing.forEach(c => {
-      const key = `${c.name.toLowerCase().trim()}_${c.location.toLowerCase().trim()}`;
-      existingSet.add(key);
+      existingMap.set(String(c.id).toLowerCase().trim(), c);
     });
 
     let imported = 0;
     let duplicates = 0;
     let invalid = 0;
+    let updated = 0;
+
+    const newItems: CompanyRecord[] = [];
 
     incoming.forEach(company => {
       if (!company.name) {
@@ -207,18 +224,34 @@ export const companyService = {
         return;
       }
 
-      const key = `${company.name.toLowerCase().trim()}_${(company.location || "").toLowerCase().trim()}`;
-      if (existingSet.has(key)) {
+      const cleanId = String(company.id || "").toLowerCase().trim();
+
+      if (cleanId && existingMap.has(cleanId)) {
         duplicates++;
+        if (overwrite) {
+          const existingComp = existingMap.get(cleanId)!;
+          const merged = { ...existingComp, ...company };
+          existingMap.set(cleanId, merged);
+          updated++;
+        }
       } else {
-        existing.unshift(company);
-        existingSet.add(key);
+        newItems.push(company);
+        if (cleanId) {
+          existingMap.set(cleanId, company);
+        }
         imported++;
       }
     });
 
-    setLocalStorage(existing);
-    auditService.log("IMPORT_COMPANIES", `Imported ${imported} companies from CSV (${duplicates} duplicates skipped)`, "User");
-    return { imported, duplicates, invalid };
+    const updatedExisting = existing.map(c => {
+      const cleanId = String(c.id).toLowerCase().trim();
+      return existingMap.get(cleanId) || c;
+    });
+
+    const finalCompanies = [...newItems, ...updatedExisting];
+    setLocalStorage(finalCompanies);
+
+    auditService.log("IMPORT_COMPANIES", `Imported ${imported} companies, updated ${updated} existing, skipped ${duplicates - (overwrite ? updated : 0)} duplicates`, "User");
+    return { imported, duplicates, invalid, updated };
   }
 };
