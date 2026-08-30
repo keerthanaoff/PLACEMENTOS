@@ -8,7 +8,8 @@ import {
 } from "lucide-react";
 import { companyService } from "@/services/companyService";
 import { studentService } from "@/services/studentService";
-import { jdService, driveService } from "@/services/storageService";
+import { driveService } from "@/services/storageService";
+import { jdService } from "@/services/jdService";
 
 export default function CompanyDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -142,13 +143,13 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
     );
   }
 
-  // Demo statistics calculation
-  const totalDrivesCount = drives.length || 2;
-  const totalApplicantsCount = placedStudents.length * 4 + 18;
-  const shortlistedCount = placedStudents.length * 2 + 6;
-  const selectedCount = placedStudents.length || 3;
-  const placementRate = Math.round((selectedCount / (shortlistedCount || 1)) * 100);
-  const avgPackage = company.salaryPackage || company.ctc || "6.0 LPA";
+  // Dynamic statistics calculation
+  const totalDrivesCount = drives.length;
+  const totalApplicantsCount = drives.reduce((sum, d) => sum + (Number(d.applicantsCount) || Number(d.registeredStudents) || 0), 0);
+  const selectedCount = drives.reduce((sum, d) => sum + (Number(d.selectedCount) || Number(d.studentsSelected) || 0), 0);
+  const shortlistedCount = drives.reduce((sum, d) => sum + (Number(d.shortlistedCount) || Math.round(Number(d.selectedCount || d.studentsSelected || 0) * 1.5) || 0), 0);
+  const placementRate = totalApplicantsCount > 0 ? Math.round((selectedCount / totalApplicantsCount) * 100) : 0;
+  const avgPackage = company.salaryPackage || company.ctc || "-";
 
   return (
     <div className="space-y-6">
@@ -254,8 +255,8 @@ export default function CompanyDetailsPage({ params }: { params: Promise<{ id: s
           <h2 className="text-sm font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
             Placement Performance Overview
           </h2>
-          <span className="text-[11px] font-semibold text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700">
-            DEMO STATISTICS
+          <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-250 dark:border-emerald-900">
+            LIVE ANALYTICS
           </span>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">

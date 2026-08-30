@@ -54,6 +54,9 @@ export default function DrivesPage() {
     title: "",
     companyId: "",
     jobRole: "",
+    companyType: "MNC",
+    industry: "",
+    location: "",
     driveDate: "",
     applicationDeadline: "",
     eligibility: "",
@@ -61,10 +64,12 @@ export default function DrivesPage() {
     requiredSkills: "",
     package: "",
     openings: "",
-    driveType: "Campus Drive",
+    driveType: "On Campus",
     workMode: "On-site",
     status: "Upcoming",
-    description: ""
+    description: "",
+    applicantsCount: "",
+    selectedCount: ""
   });
 
   // Company Form State (Manual Add)
@@ -99,9 +104,23 @@ export default function DrivesPage() {
   // ----------------------------------------------------
   const handleDriveFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    if (name === "companyId" && value === "ADD_NEW") {
-      setIsCompanyModalOpen(true);
-      return;
+    if (name === "companyId") {
+      if (value === "ADD_NEW") {
+        setIsCompanyModalOpen(true);
+        return;
+      }
+      // Auto-fill company type, industry, location if company is selected
+      const comp = companies.find(c => c.id === value);
+      if (comp) {
+        setDriveForm(prev => ({
+          ...prev,
+          companyId: value,
+          companyType: comp.companyType || "MNC",
+          industry: comp.industry || "",
+          location: comp.location || ""
+        }));
+        return;
+      }
     }
     setDriveForm(prev => ({ ...prev, [name]: value }));
   };
@@ -116,8 +135,12 @@ export default function DrivesPage() {
       id: `D${Date.now().toString().slice(-4)}`,
       ...driveForm,
       company: compRecord ? compRecord.name : "Unknown Company",
-      industry: compRecord?.industry || "IT",
-      location: compRecord?.location || "India"
+      companyType: driveForm.companyType || compRecord?.companyType || "MNC",
+      industry: driveForm.industry || compRecord?.industry || "IT Services",
+      location: driveForm.location || compRecord?.location || "India",
+      applicantsCount: parseInt(driveForm.applicantsCount) || 0,
+      selectedCount: parseInt(driveForm.selectedCount) || 0,
+      shortlistedCount: Math.round((parseInt(driveForm.applicantsCount) || 0) * 0.3)
     };
 
     driveService.save(newDrive);
@@ -127,9 +150,10 @@ export default function DrivesPage() {
     
     // Reset
     setDriveForm({
-      title: "", companyId: "", jobRole: "", driveDate: "", applicationDeadline: "",
-      eligibility: "", minCgpa: "", requiredSkills: "", package: "", openings: "",
-      driveType: "Campus Drive", workMode: "On-site", status: "Upcoming", description: ""
+      title: "", companyId: "", jobRole: "", companyType: "MNC", industry: "", location: "",
+      driveDate: "", applicationDeadline: "", eligibility: "", minCgpa: "", requiredSkills: "", 
+      package: "", openings: "", driveType: "On Campus", workMode: "On-site", status: "Upcoming", 
+      description: "", applicantsCount: "", selectedCount: ""
     });
   };
 
@@ -206,28 +230,32 @@ export default function DrivesPage() {
       inserted = result.imported + result.updated;
     } else {
       rowsToImport.forEach(row => {
-        const compName = row.rawRow.company_name || row.rawRow.company || row.data.company || "";
+        const compName = row.data.company || "";
         const matchComp = companies.find(c => 
           c.name.toLowerCase().trim() === compName.toLowerCase().trim()
         );
 
         driveService.save({
-          id: row.rawRow.drive_id || `D_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-          companyId: row.rawRow.company_id || (matchComp ? matchComp.id : `C_TEMP_${Date.now()}`),
+          id: row.data.drive_id || `D_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          companyId: matchComp ? matchComp.id : `C_TEMP_${Date.now()}`,
           company: matchComp ? matchComp.name : compName,
-          title: row.rawRow.drive_title || row.data.title,
-          jobRole: row.rawRow.job_role || row.data.title,
-          industry: row.rawRow.industry || matchComp?.industry || "IT",
-          location: row.rawRow.location || matchComp?.location || "India",
-          eligibility: row.rawRow.eligibility || row.data.cgpaCutoff || "UG 60%+",
-          minCgpa: row.rawRow.min_cgpa || row.data.cgpaCutoff || "6.0",
-          package: row.rawRow.package || "N/A",
-          openings: parseInt(row.rawRow.openings) || 0,
-          driveDate: row.rawRow.drive_date || row.data.date || new Date().toISOString().split("T")[0],
-          applicationDeadline: row.rawRow.application_deadline || new Date().toISOString().split("T")[0],
-          driveType: row.rawRow.drive_type || "Campus Drive",
-          workMode: row.rawRow.work_mode || "On-site",
-          status: row.rawRow.status || row.data.status || "Upcoming",
+          title: row.data.title,
+          jobRole: row.data.title,
+          companyType: row.data.company_type || matchComp?.companyType || "MNC",
+          industry: row.data.industry || matchComp?.industry || "IT Services",
+          location: row.data.location || matchComp?.location || "India",
+          package: row.data.package || "N/A",
+          eligibility: row.data.cgpaCutoff || "UG 60%+",
+          minCgpa: row.data.cgpaCutoff || "6.0",
+          openings: row.data.openings || 0,
+          driveDate: row.data.date || new Date().toISOString().split("T")[0],
+          applicationDeadline: row.data.application_deadline || new Date().toISOString().split("T")[0],
+          driveType: row.data.drive_type || "On Campus",
+          workMode: row.data.workMode || "On-site",
+          status: row.data.status || "Upcoming",
+          applicantsCount: row.data.applicants || 0,
+          selectedCount: row.data.students_selected || 0,
+          shortlistedCount: Math.round((row.data.applicants || 0) * 0.3)
         });
         inserted++;
       });
@@ -246,7 +274,7 @@ export default function DrivesPage() {
     return drives.map(drive => {
       const comp = companies.find(c => c.id === drive.companyId) || companies.find(c => c.name.toLowerCase().trim() === String(drive.company).toLowerCase().trim());
       
-      const compType = comp?.companyType || "MNC";
+      const compType = drive.companyType || comp?.companyType || "MNC";
       
       return {
         ...drive,
@@ -256,10 +284,9 @@ export default function DrivesPage() {
         industry: drive.industry || comp?.industry || "N/A",
         location: drive.location || comp?.location || "N/A",
         package: drive.package || comp?.salaryPackage || "N/A",
-        // Fallbacks for missing stats
-        applicantsCount: drive.applicantsCount || Math.floor(Math.random() * 50) + 20,
-        shortlistedCount: drive.shortlistedCount || Math.floor(Math.random() * 15) + 5,
-        selectedCount: drive.selectedCount || Math.floor(Math.random() * 5) + 1,
+        applicantsCount: drive.applicantsCount !== undefined ? drive.applicantsCount : 0,
+        shortlistedCount: drive.shortlistedCount !== undefined ? drive.shortlistedCount : 0,
+        selectedCount: drive.selectedCount !== undefined ? drive.selectedCount : 0,
       };
     });
   }, [drives, companies]);
@@ -270,7 +297,9 @@ export default function DrivesPage() {
         d.title?.toLowerCase().includes(searchTerm.toLowerCase()) || 
         d.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         d.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        d.jobRole?.toLowerCase().includes(searchTerm.toLowerCase());
+        d.jobRole?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        d.industry?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        d.location?.toLowerCase().includes(searchTerm.toLowerCase());
         
       const matchCompType = filters.companyType === "" || d.companyType === filters.companyType;
       const matchStatus = filters.status === "" || d.status?.toLowerCase() === filters.status.toLowerCase();
@@ -379,9 +408,8 @@ export default function DrivesPage() {
       )}
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {[
-          { label: "Total Drives", value: drives.length, icon: CalendarDays, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-900/20" },
           { label: "Active Drives", value: analytics.activeDrives, icon: RefreshCw, color: "text-indigo-500", bg: "bg-indigo-50 dark:bg-indigo-900/20" },
           { label: "Upcoming Drives", value: analytics.upcomingDrives, icon: CalendarDays, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-900/20" },
           { label: "Completed Drives", value: analytics.completedDrives, icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
@@ -403,12 +431,26 @@ export default function DrivesPage() {
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-sm">
           <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4">Company Mix</h3>
           <div className="flex items-center gap-6">
-            <div className="w-24 h-24 rounded-full border-8 border-gray-100 dark:border-gray-800 relative flex items-center justify-center">
-              {/* Very simple mock donut using borders for visual effect */}
-              <div className="absolute inset-0 rounded-full border-8 border-indigo-500 border-t-transparent border-l-transparent rotate-45"></div>
-              <div className="absolute inset-0 rounded-full border-8 border-amber-400 border-b-transparent border-r-transparent rotate-12"></div>
-              <span className="text-sm font-bold text-gray-900 dark:text-white">{Object.keys(analytics.companyTypes).length}</span>
-            </div>
+            {(() => {
+              const startupCount = analytics.companyTypes["Startup"] || 0;
+              const mncCount = analytics.companyTypes["MNC"] || 0;
+              const totalMix = startupCount + mncCount || 1;
+              const mncPercent = Math.round((mncCount / totalMix) * 100);
+              return (
+                <div 
+                  className="w-24 h-24 rounded-full relative flex items-center justify-center shrink-0 shadow-inner"
+                  style={{
+                    background: `conic-gradient(#6366f1 0% ${mncPercent}%, #fbbf24 ${mncPercent}% 100%)`
+                  }}
+                >
+                  {/* Inside hole */}
+                  <div className="w-16 h-16 rounded-full bg-white dark:bg-gray-900 flex flex-col items-center justify-center">
+                    <span className="text-sm font-black text-gray-900 dark:text-white">{drives.length}</span>
+                    <span className="text-[8px] font-bold text-gray-400 uppercase">Drives</span>
+                  </div>
+                </div>
+              );
+            })()}
             <div className="flex-1 space-y-2">
               {Object.entries(analytics.companyTypes).map(([type, count]) => (
                 <div key={type} className="flex items-center justify-between text-xs">
@@ -416,7 +458,9 @@ export default function DrivesPage() {
                     <span className={`w-2 h-2 rounded-full ${type.toLowerCase() === 'startup' ? 'bg-amber-400' : 'bg-indigo-500'}`}></span>
                     <span className="font-semibold text-gray-700 dark:text-gray-300">{type}</span>
                   </div>
-                  <span className="font-bold text-gray-900 dark:text-white">{Math.round((count / drives.length) * 100) || 0}%</span>
+                  <span className="font-bold text-gray-900 dark:text-white">
+                    {count} {count === 1 ? 'drive' : 'drives'} ({Math.round((count / (drives.length || 1)) * 100)}%)
+                  </span>
                 </div>
               ))}
             </div>
@@ -426,16 +470,18 @@ export default function DrivesPage() {
         <div className="lg:col-span-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-sm">
           <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4">Industry Distribution</h3>
           <div className="space-y-3">
-            {Object.entries(analytics.industries).slice(0, 4).map(([ind, count], idx) => (
+            {Object.entries(analytics.industries).map(([ind, count], idx) => (
               <div key={ind} className="space-y-1">
                 <div className="flex justify-between text-xs font-semibold">
                   <span className="text-gray-700 dark:text-gray-300">{ind}</span>
-                  <span className="text-gray-900 dark:text-white">{count}</span>
+                  <span className="text-gray-900 dark:text-white">
+                    {count} ({((count / (drives.length || 1)) * 100).toFixed(1)}%)
+                  </span>
                 </div>
                 <div className="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                   <div 
-                    className={`h-full rounded-full ${['bg-indigo-500', 'bg-purple-500', 'bg-blue-500', 'bg-emerald-500'][idx % 4]}`} 
-                    style={{ width: `${(count / drives.length) * 100}%` }}
+                    className={`h-full rounded-full ${['bg-indigo-500', 'bg-purple-500', 'bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 'bg-pink-500'][idx % 6]}`} 
+                    style={{ width: `${(count / (drives.length || 1)) * 100}%` }}
                   ></div>
                 </div>
               </div>
@@ -462,8 +508,6 @@ export default function DrivesPage() {
             <option value="">All Company Types</option>
             <option value="MNC">MNC</option>
             <option value="Startup">Startup</option>
-            <option value="Product">Product Company</option>
-            <option value="Service">Service Company</option>
           </select>
           <select value={filters.status} onChange={e => setFilters(prev => ({...prev, status: e.target.value}))} className="w-full text-xs font-semibold bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-300">
             <option value="">All Statuses</option>
@@ -475,9 +519,8 @@ export default function DrivesPage() {
           </select>
           <select value={filters.driveType} onChange={e => setFilters(prev => ({...prev, driveType: e.target.value}))} className="w-full text-xs font-semibold bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-300">
             <option value="">All Drive Types</option>
-            <option value="Campus Drive">Campus Drive</option>
-            <option value="Pool Drive">Pool Drive</option>
-            <option value="Off-Campus">Off-Campus</option>
+            <option value="On Campus">On Campus</option>
+            <option value="Off Campus">Off Campus</option>
           </select>
           <button onClick={clearFilters} className="text-xs font-bold text-gray-500 hover:text-indigo-600 transition-colors">Clear Filters</button>
         </div>
@@ -619,6 +662,21 @@ export default function DrivesPage() {
                     <input required type="text" name="jobRole" value={driveForm.jobRole} onChange={handleDriveFormChange} placeholder="e.g. Software Engineer" className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white" />
                   </div>
                   <div>
+                    <label className="block text-[10px] text-gray-500 uppercase tracking-wider mb-1.5">Company Type</label>
+                    <select name="companyType" value={driveForm.companyType} onChange={handleDriveFormChange} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white">
+                      <option value="MNC">MNC</option>
+                      <option value="Startup">Startup</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-500 uppercase tracking-wider mb-1.5">Industry</label>
+                    <input type="text" name="industry" value={driveForm.industry} onChange={handleDriveFormChange} placeholder="e.g. IT Services" className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-500 uppercase tracking-wider mb-1.5">Location</label>
+                    <input type="text" name="location" value={driveForm.location} onChange={handleDriveFormChange} placeholder="e.g. Bengaluru" className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white" />
+                  </div>
+                  <div>
                     <label className="block text-[10px] text-gray-500 uppercase tracking-wider mb-1.5">Drive Date *</label>
                     <input required type="date" name="driveDate" value={driveForm.driveDate} onChange={handleDriveFormChange} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white" />
                   </div>
@@ -628,7 +686,7 @@ export default function DrivesPage() {
                   </div>
                   <div>
                     <label className="block text-[10px] text-gray-500 uppercase tracking-wider mb-1.5">Package (CTC)</label>
-                    <input type="text" name="package" value={driveForm.package} onChange={handleDriveFormChange} placeholder="e.g. 6.0 LPA" className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white" />
+                    <input type="text" name="package" value={driveForm.package} onChange={handleDriveFormChange} placeholder="e.g. ₹7.0 LPA" className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-gray-500 uppercase tracking-wider mb-1.5">Eligibility criteria</label>
@@ -643,17 +701,22 @@ export default function DrivesPage() {
                     <input type="number" name="openings" value={driveForm.openings} onChange={handleDriveFormChange} placeholder="e.g. 10" className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white" />
                   </div>
                   <div>
+                    <label className="block text-[10px] text-gray-500 uppercase tracking-wider mb-1.5">Total Applicants</label>
+                    <input type="number" name="applicantsCount" value={driveForm.applicantsCount} onChange={handleDriveFormChange} placeholder="e.g. 80" className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-gray-500 uppercase tracking-wider mb-1.5">Students Selected</label>
+                    <input type="number" name="selectedCount" value={driveForm.selectedCount} onChange={handleDriveFormChange} placeholder="e.g. 12" className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white" />
+                  </div>
+                  <div>
                     <label className="block text-[10px] text-gray-500 uppercase tracking-wider mb-1.5">Required Skills</label>
                     <input type="text" name="requiredSkills" value={driveForm.requiredSkills} onChange={handleDriveFormChange} placeholder="e.g. React, Java, SQL" className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-gray-500 uppercase tracking-wider mb-1.5">Drive Type</label>
                     <select name="driveType" value={driveForm.driveType} onChange={handleDriveFormChange} className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white">
-                      <option value="Campus Drive">Campus Drive</option>
-                      <option value="Pool Drive">Pool Drive</option>
-                      <option value="Off-Campus">Off-Campus</option>
-                      <option value="Internship">Internship</option>
-                      <option value="Full-Time">Full-Time</option>
+                      <option value="On Campus">On Campus</option>
+                      <option value="Off Campus">Off Campus</option>
                     </select>
                   </div>
                   <div>

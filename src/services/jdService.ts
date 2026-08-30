@@ -24,6 +24,7 @@ export interface StoredJD {
   recruitmentProcess: string[];
   rawText?: string;
   status: "ACTIVE" | "PENDING" | "DRAFT";
+  analysisStatus?: "COMPLETED" | "PENDING" | "FAILED";
   createdAt: string;
   updatedAt: string;
 }
@@ -47,12 +48,21 @@ export interface MatchResult {
 
 export type ScoreCategory = "Excellent" | "Good" | "Moderate" | "Low";
 
+import { INITIAL_JDS } from "@/lib/jdSeedData";
+
 export const jdService = {
   // ─────────────────────── CRUD ────────────────────────────────────────────
   getAll(): StoredJD[] {
     if (!isBrowser) return [];
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      let raw = localStorage.getItem(STORAGE_KEY);
+      
+      // Seed data if empty
+      if (!raw || JSON.parse(raw).length === 0) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_JDS));
+        raw = JSON.stringify(INITIAL_JDS);
+      }
+      
       return raw ? JSON.parse(raw) : [];
     } catch { return []; }
   },
@@ -87,6 +97,7 @@ export const jdService = {
       recruitmentProcess: jd.recruitmentProcess || [],
       rawText: jd.rawText,
       status: jd.status || "ACTIVE",
+      analysisStatus: jd.analysisStatus || "COMPLETED",
       createdAt: idx > -1 ? all[idx].createdAt : now,
       updatedAt: now,
     };

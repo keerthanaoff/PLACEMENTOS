@@ -132,21 +132,39 @@ const COMPANY_FIELD_LABELS: Record<string, string> = {
 
 // --- DRIVE ALIASES ---
 const DRIVE_ALIASES: Record<string, string[]> = {
+  drive_id: ["drive_id", "driveid", "id", "code"],
   title: ["title", "drive_title", "drive_name", "job_role", "role"],
   company: ["company", "company_name", "organization"],
+  company_type: ["company_type", "companytype", "type"],
+  industry: ["industry", "domain", "sector"],
+  location: ["location", "city", "place"],
+  package: ["package", "ctc", "salary"],
+  drive_type: ["drive_type", "drive_mode", "drivetype"],
   date: ["date", "drive_date", "schedule_date", "interview_date"],
+  application_deadline: ["application_deadline", "deadline", "app_deadline"],
+  applicants: ["applicants", "app", "applicants_count", "applicantscount"],
+  students_selected: ["students_selected", "selected", "selected_count", "selectedcount", "sel"],
+  status: ["status", "drive_status", "stage"],
   cgpa_cutoff: ["eligibility", "min_cgpa", "cgpa_cutoff", "cutoff", "cgpa"],
-  departments: ["departments", "eligible_departments", "dept", "branch"],
-  status: ["status", "drive_status", "stage"]
+  departments: ["departments", "eligible_departments", "dept", "branch"]
 };
 
 const DRIVE_FIELD_LABELS: Record<string, string> = {
-  title: "Drive Title",
+  drive_id: "Drive ID",
+  title: "Role / Title",
   company: "Company",
+  company_type: "Company Type",
+  industry: "Industry",
+  location: "Location",
+  package: "Package",
+  drive_type: "Drive Type",
   date: "Drive Date",
+  application_deadline: "App Deadline",
+  applicants: "Applicants",
+  students_selected: "Selected",
+  status: "Status",
   cgpa_cutoff: "Eligibility Cutoff",
-  departments: "Target Departments",
-  status: "Status"
+  departments: "Target Departments"
 };
 
 const matchFieldKey = (normHeader: string, aliasTable: Record<string, string[]>): string | null => {
@@ -364,22 +382,27 @@ export const parseCompanyExcelOrCsv = (binaryData: string, fileName: string): Im
       if (fieldKey) rowObj[fieldKey] = cellStr;
     });
 
-    const companyId = (rowObj["id"] || "").trim();
     const companyName = (rowObj["name"] || "").trim();
-    const industry = rowObj["industry"] || "Software & Technology";
-    const location = rowObj["location"] || "N/A";
+    let companyId = (rowObj["id"] || "").trim();
+    if (!companyId && companyName) {
+      // Auto-generate clean ID if missing
+      companyId = `C_${companyName.toUpperCase().replace(/[^A-Z0-9]/g, "").substring(0, 10)}_${r}`;
+    }
+
+    const industry = rowObj["industry"] || "";
+    const location = rowObj["location"] || "";
     const website = rowObj["website"] || "";
     const companyType = rowObj["companyType"] || "MNC";
-    const hrName = rowObj["hrName"] || "N/A";
+    const hrName = rowObj["hrName"] || "";
     const hrEmail = rowObj["hrEmail"] || "";
-    const hrPhone = rowObj["hrPhone"] || "N/A";
-    const description = rowObj["description"] || "N/A";
-    const jobRoles = rowObj["jobRoles"] || "N/A";
-    const requiredSkills = rowObj["requiredSkills"] || "N/A";
-    const salaryPackage = rowObj["salaryPackage"] || "N/A";
-    const jobType = rowObj["jobType"] || "Full Time";
+    const hrPhone = rowObj["hrPhone"] || "";
+    const description = rowObj["description"] || "";
+    const jobRoles = rowObj["jobRoles"] || "";
+    const requiredSkills = rowObj["requiredSkills"] || "";
+    const salaryPackage = rowObj["salaryPackage"] || "";
+    const jobType = rowObj["jobType"] || "";
     const openPositionsStr = rowObj["openPositions"] || "0";
-    const eligibilityCriteria = rowObj["eligibilityCriteria"] || "N/A";
+    const eligibilityCriteria = rowObj["eligibilityCriteria"] || "";
     const companyStatus = rowObj["companyStatus"] || "COLD";
 
     const normId = companyId.toLowerCase();
@@ -388,10 +411,7 @@ export const parseCompanyExcelOrCsv = (binaryData: string, fileName: string): Im
     let rowStatus: "VALID" | "DUPLICATE" | "INVALID" = "VALID";
     let reason = "Valid company record";
 
-    if (!companyId) {
-      rowStatus = "INVALID";
-      reason = `Row ${rowNumber}: Company ID is missing` + (companyName ? ` for "${companyName}"` : "");
-    } else if (!companyName) {
+    if (!companyName) {
       rowStatus = "INVALID";
       reason = `Row ${rowNumber}: Company Name is missing`;
     } else if (hrEmail && !emailRegex.test(hrEmail)) {
@@ -494,13 +514,22 @@ export const parseDriveExcelOrCsv = (binaryData: string, fileName: string): Impo
     });
 
     const title = (rowObj["title"] || "").trim();
-    const company = (rowObj["company"] || "Top Company").trim();
+    const company = (rowObj["company"] || "").trim();
     const date = rowObj["date"] || new Date().toISOString().split("T")[0];
-    const cgpaCutoff = rowObj["cgpa_cutoff"] || "7.5";
+    const cgpaCutoff = rowObj["cgpa_cutoff"] || "6.0";
     const departments = rowObj["departments"] || "CSE, ECE, IT";
-    const statusStr = (rowObj["status"] || "").toUpperCase();
+    const statusStr = (rowObj["status"] || "Upcoming").trim();
+    const driveId = (rowObj["drive_id"] || "").trim();
+    const companyType = (rowObj["company_type"] || "MNC").trim();
+    const industry = (rowObj["industry"] || "IT Services").trim();
+    const location = (rowObj["location"] || "").trim();
+    const packageVal = (rowObj["package"] || "N/A").trim();
+    const driveType = (rowObj["drive_type"] || "On Campus").trim();
+    const appDeadline = rowObj["application_deadline"] || date;
+    const applicants = parseInt(rowObj["applicants"]) || 0;
+    const selected = parseInt(rowObj["students_selected"]) || 0;
 
-    const status = ["UPCOMING", "ONGOING", "COMPLETED"].includes(statusStr) ? statusStr : "UPCOMING";
+    const status = ["UPCOMING", "ACTIVE", "INTERVIEW", "COMPLETED", "CANCELLED"].includes(statusStr.toUpperCase()) ? statusStr : "Upcoming";
     const normKey = normalizeHeader(`${company}_${title}`);
     const rowNumber = r + 1;
 
@@ -509,7 +538,22 @@ export const parseDriveExcelOrCsv = (binaryData: string, fileName: string): Impo
 
     if (!title) {
       rowStatus = "INVALID";
-      reason = `Row ${rowNumber}: Drive Title is missing`;
+      reason = `Row ${rowNumber}: Drive Role is missing`;
+    } else if (!company) {
+      rowStatus = "INVALID";
+      reason = `Row ${rowNumber}: Company is missing`;
+    } else if (!date) {
+      rowStatus = "INVALID";
+      reason = `Row ${rowNumber}: Date is missing`;
+    } else if (!statusStr) {
+      rowStatus = "INVALID";
+      reason = `Row ${rowNumber}: Status is missing`;
+    } else if (!["UPCOMING", "ACTIVE", "INTERVIEW", "COMPLETED", "CANCELLED"].includes(statusStr.toUpperCase())) {
+      rowStatus = "INVALID";
+      reason = `Row ${rowNumber}: Status "${statusStr}" is invalid (must be Upcoming, Active, Completed, or Cancelled)`;
+    } else if (!["MNC", "STARTUP"].includes(companyType.toUpperCase())) {
+      rowStatus = "INVALID";
+      reason = `Row ${rowNumber}: Company Type "${companyType}" is invalid (must be MNC or Startup)`;
     } else if (dbTitles.has(normKey)) {
       rowStatus = "DUPLICATE";
       reason = `Drive "${company} - ${title}" already exists.`;
@@ -525,13 +569,21 @@ export const parseDriveExcelOrCsv = (binaryData: string, fileName: string): Impo
       status: rowStatus,
       reason,
       data: {
+        drive_id: driveId || `D_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         title,
         company,
+        company_type: companyType,
+        industry,
+        location,
+        package: packageVal,
+        drive_type: driveType,
         date,
-        cgpaCutoff,
-        departments: departments.split(",").map(d => d.trim()),
+        application_deadline: appDeadline,
+        applicants,
+        students_selected: selected,
         status,
-        registeredStudents: 0
+        cgpaCutoff,
+        departments: departments.split(",").map(d => d.trim())
       },
       rawRow: rawObj
     };

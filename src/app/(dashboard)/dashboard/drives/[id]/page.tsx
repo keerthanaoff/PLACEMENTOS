@@ -168,6 +168,14 @@ export default function DriveDetailsPage({ params }: { params: Promise<{ id: str
                 <span className="text-gray-900 dark:text-white font-bold">{drive.jobRole || drive.title}</span>
               </div>
               <div className="flex justify-between py-1.5 border-b border-gray-50 dark:border-gray-800/50">
+                <span className="text-gray-500">Company Type</span>
+                <span className="text-gray-900 dark:text-white font-bold uppercase">{drive.companyType || company?.companyType || "MNC"}</span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-gray-50 dark:border-gray-800/50">
+                <span className="text-gray-500">Drive Type</span>
+                <span className="text-gray-900 dark:text-white font-bold">{drive.driveType || "On Campus"}</span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-gray-50 dark:border-gray-800/50">
                 <span className="text-gray-500">Industry</span>
                 <span className="text-gray-900 dark:text-white">{drive.industry || company?.industry || "IT"}</span>
               </div>
@@ -292,21 +300,37 @@ export default function DriveDetailsPage({ params }: { params: Promise<{ id: str
                  <p className="text-xs font-bold text-gray-900 dark:text-white">Registration Closed</p>
                  <p className="text-[10px] text-gray-500">{drive.applicationDeadline ? new Date(drive.applicationDeadline).toLocaleDateString() : "Passed"}</p>
                </div>
-               <div className="relative pl-6">
-                 <div className={`absolute w-3 h-3 rounded-full -left-[7px] top-1 border-2 border-white dark:border-gray-900 ${driveStatus === "Active" || driveStatus === "Interview" || driveStatus === "Completed" ? "bg-emerald-500" : "bg-gray-300 dark:bg-gray-600"}`}></div>
-                 <p className="text-xs font-bold text-gray-900 dark:text-white">Aptitude Test</p>
-                 <p className="text-[10px] text-gray-500">Technical & Logical reasoning</p>
-               </div>
-               <div className="relative pl-6">
-                 <div className={`absolute w-3 h-3 rounded-full -left-[7px] top-1 border-2 border-white dark:border-gray-900 ${driveStatus === "Completed" ? "bg-emerald-500" : driveStatus === "Interview" ? "bg-indigo-500" : "bg-gray-300 dark:bg-gray-600"}`}></div>
-                 <p className="text-xs font-bold text-gray-900 dark:text-white">Technical Interviews</p>
-                 <p className="text-[10px] text-gray-500">Multiple rounds</p>
-               </div>
-               <div className="relative pl-6">
-                 <div className={`absolute w-3 h-3 rounded-full -left-[7px] top-1 border-2 border-white dark:border-gray-900 ${driveStatus === "Completed" ? "bg-emerald-500" : "bg-gray-300 dark:bg-gray-600"}`}></div>
-                 <p className="text-xs font-bold text-gray-900 dark:text-white">HR Interview & Selection</p>
-                 <p className="text-[10px] text-gray-500">Final offers rolled out</p>
-               </div>
+               {drive.recruitmentProcess && drive.recruitmentProcess.length > 0 ? (
+                 drive.recruitmentProcess.map((step: string, sIdx: number) => (
+                   <div key={sIdx} className="relative pl-6">
+                     <div className={`absolute w-3 h-3 rounded-full -left-[7px] top-1 border-2 border-white dark:border-gray-900 ${
+                       driveStatus === "Completed" || driveStatus === "COMPLETED" ? "bg-emerald-500" :
+                       (driveStatus === "Active" || driveStatus === "ACTIVE") && sIdx === 0 ? "bg-indigo-500 animate-pulse" :
+                       (driveStatus === "Interview" || driveStatus === "INTERVIEW") && sIdx === 1 ? "bg-indigo-500 animate-pulse" :
+                       "bg-gray-300 dark:bg-gray-600"
+                     }`}></div>
+                     <p className="text-xs font-bold text-gray-900 dark:text-white">{step}</p>
+                   </div>
+                 ))
+               ) : (
+                 <>
+                   <div className="relative pl-6">
+                     <div className={`absolute w-3 h-3 rounded-full -left-[7px] top-1 border-2 border-white dark:border-gray-900 ${driveStatus === "Active" || driveStatus === "Interview" || driveStatus === "Completed" ? "bg-emerald-500" : "bg-gray-300 dark:bg-gray-600"}`}></div>
+                     <p className="text-xs font-bold text-gray-900 dark:text-white">Aptitude Test</p>
+                     <p className="text-[10px] text-gray-500">Technical & Logical reasoning</p>
+                   </div>
+                   <div className="relative pl-6">
+                     <div className={`absolute w-3 h-3 rounded-full -left-[7px] top-1 border-2 border-white dark:border-gray-900 ${driveStatus === "Completed" ? "bg-emerald-500" : driveStatus === "Interview" ? "bg-indigo-500" : "bg-gray-300 dark:bg-gray-600"}`}></div>
+                     <p className="text-xs font-bold text-gray-900 dark:text-white">Technical Interviews</p>
+                     <p className="text-[10px] text-gray-500">Multiple rounds</p>
+                   </div>
+                   <div className="relative pl-6">
+                     <div className={`absolute w-3 h-3 rounded-full -left-[7px] top-1 border-2 border-white dark:border-gray-900 ${driveStatus === "Completed" ? "bg-emerald-500" : "bg-gray-300 dark:bg-gray-600"}`}></div>
+                     <p className="text-xs font-bold text-gray-900 dark:text-white">HR Interview & Selection</p>
+                     <p className="text-[10px] text-gray-500">Final offers rolled out</p>
+                   </div>
+                 </>
+               )}
             </div>
           </div>
         </div>

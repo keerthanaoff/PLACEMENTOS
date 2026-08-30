@@ -1,11 +1,12 @@
+import { NextRequest, NextResponse } from "next/server";
+import { GoogleGenAI } from "@google/genai";
+
 export const runtime = "nodejs";
 
-import { NextRequest, NextResponse } from "next/server";
-// pdf-parse is used server-side only
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
+// Use AI for structured analysis if API key exists
+const ai = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
 
-// Heuristic extraction helpers
+// Heuristic fallback helpers
 function extractField(text: string, patterns: string[]): string {
   for (const pattern of patterns) {
     const regex = new RegExp(`${pattern}[:\\s]+([^\\n]{2,100})`, "i");
@@ -15,39 +16,6 @@ function extractField(text: string, patterns: string[]): string {
     }
   }
   return "Not specified";
-}
-
-function extractSkillsList(text: string): string[] {
-  // Master skill keyword pool for detection
-  const SKILL_KEYWORDS = [
-    // Languages
-    "python","java","javascript","typescript","c\\+\\+","c#","golang","go","ruby","php","swift","kotlin","scala","r","matlab","perl","bash","shell","powershell",
-    // Web/Frontend
-    "react","reactjs","react.js","angular","vue","vuejs","nextjs","next.js","html","css","tailwind","bootstrap","sass","jquery",
-    // Backend
-    "node.js","nodejs","express","django","flask","fastapi","spring","springboot","spring boot","laravel","rails","asp.net",
-    // Data
-    "sql","mysql","postgresql","mongodb","redis","elasticsearch","cassandra","dynamodb","oracle","sqlite","nosql","neo4j","hadoop","spark","kafka","airflow","databricks",
-    // Cloud & DevOps
-    "aws","azure","gcp","google cloud","docker","kubernetes","k8s","terraform","ansible","jenkins","ci/cd","github actions","gitlab ci","linux","nginx","apache","microservices",
-    // AI/ML
-    "machine learning","deep learning","tensorflow","pytorch","keras","scikit-learn","pandas","numpy","opencv","nlp","natural language processing","computer vision","data science","big data",
-    // Other
-    "git","agile","scrum","jira","rest api","graphql","grpc","oauth","jwt","selenium","cypress","jest","junit","figma","powerbi","tableau","excel","sap","salesforce","networking","cybersecurity","blockchain"
-  ];
-  
-  const found: string[] = [];
-  const lower = text.toLowerCase();
-  for (const kw of SKILL_KEYWORDS) {
-    const escaped = kw.replace(/[.+]/g, "\\$&");
-    if (new RegExp(`\\b${escaped}\\b`).test(lower)) {
-      // Clean up display
-      const display = kw.replace(/\\\+/g, "+").replace(/\\./g, ".");
-      const displayKey = display.charAt(0).toUpperCase() + display.slice(1);
-      if (!found.includes(displayKey)) found.push(displayKey);
-    }
-  }
-  return found.slice(0, 25); // cap at 25
 }
 
 function extractList(text: string, sectionHeaders: string[]): string[] {
@@ -63,11 +31,8 @@ function extractList(text: string, sectionHeaders: string[]): string[] {
     if (isHeader) { inSection = true; continue; }
     
     if (inSection) {
-      // Check if we hit another section header (stop condition)
       const isNewSection = /^(responsibilities|requirements|qualifications|benefits|about|company|skills|experience|education|salary|compensation|apply)/i.test(line);
-      if (isNewSection && !sectionHeaders.some(h => line.toLowerCase().includes(h.toLowerCase()))) {
-        break;
-      }
+      if (isNewSection && !sectionHeaders.some(h => line.toLowerCase().includes(h.toLowerCase()))) break;
       
       const cleaned = line.replace(/^[-•*→▶✓✔>]\s*/, "").trim();
       if (cleaned.length > 5 && cleaned.length < 200) {
@@ -87,64 +52,100 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
     
-    // Convert file to buffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     
     let text = "";
     try {
+      // Dynamic require inside the request handler to avoid build-time evaluation
+      // which causes DOMMatrix ReferenceError in Next.js
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const pdfParse = require("pdf-parse");
+      
+      // Basic DOMMatrix polyfill just in case pdf-parse needs it during execution
+      if (typeof global !== 'undefined' && !global.DOMMatrix) {
+        (global as any).DOMMatrix = class DOMMatrix {};
+      }
+      
       const pdfData = await pdfParse(buffer);
       text = pdfData.text;
     } catch (err) {
-      return NextResponse.json({ error: "Failed to parse PDF", reason: String(err) }, { status: 422 });
+      return NextResponse.json({ error: "PDF uploaded successfully, but text extraction failed.", reason: String(err) }, { status: 422 });
     }
     
     if (!text || text.trim().length < 50) {
       return NextResponse.json({ error: "PDF appears to be empty or image-based, unable to extract text" }, { status: 422 });
     }
     
-    // Extract structured fields
-    const company = extractField(text, ["company", "organization", "employer", "hiring company"]);
-    const jobTitle = extractField(text, ["job title", "position", "role", "designation", "post"]);
-    const location = extractField(text, ["location", "job location", "work location", "city", "place of work"]);
-    const experience = extractField(text, ["experience", "experience required", "years of experience", "work experience"]);
-    const education = extractField(text, ["education", "qualification", "educational qualification", "degree"]);
-    const salary = extractField(text, ["salary", "ctc", "compensation", "package", "stipend", "lpa", "pay"]);
-    const openings = extractField(text, ["openings", "vacancies", "no of positions", "number of positions"]);
-    const industry = extractField(text, ["industry", "domain", "sector"]);
-    const jobType = extractField(text, ["job type", "employment type", "work type", "work mode"]);
+    // Default fallback extraction
+    const fallbackData = {
+      company: extractField(text, ["company", "organization", "employer", "hiring company"]),
+      jobTitle: extractField(text, ["job title", "position", "role", "designation", "post"]),
+      location: extractField(text, ["location", "job location", "work location", "city", "place of work"]),
+      experience: extractField(text, ["experience", "experience required", "years of experience", "work experience"]),
+      education: extractField(text, ["education", "qualification", "educational qualification", "degree"]),
+      salary: extractField(text, ["salary", "ctc", "compensation", "package", "stipend", "lpa", "pay"]),
+      openings: extractField(text, ["openings", "vacancies", "no of positions", "number of positions"]),
+      industry: extractField(text, ["industry", "domain", "sector"]),
+      jobType: extractField(text, ["job type", "employment type", "work type", "work mode"]),
+      skills: extractList(text, ["skills", "technologies", "tech stack"]),
+      responsibilities: extractList(text, ["responsibilities", "key responsibilities", "job responsibilities", "duties"]),
+      eligibility: extractList(text, ["eligibility", "eligibility criteria", "who can apply", "requirements"]),
+      recruitmentProcess: extractList(text, ["recruitment process", "hiring process", "selection process"]),
+      keywords: [],
+    };
+
+    // Attempt AI extraction if available
+    let aiData = null;
+    let analysisPending = false;
     
-    // Skills
-    const skills = extractSkillsList(text);
+    if (ai) {
+      try {
+        const prompt = `Analyze this Job Description and extract the following structured information. If a field is not found, leave it as "Not specified" or empty array.
+Return valid JSON ONLY with these exact keys:
+{
+  "company": "", "jobTitle": "", "location": "", "experience": "", "education": "", "salary": "", "openings": "", "industry": "", "jobType": "",
+  "skills": [], "preferredSkills": [], "responsibilities": [], "eligibility": [], "recruitmentProcess": [], "keywords": []
+}
+
+Job Description Text:
+${text.slice(0, 15000)}`;
+
+        const response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: prompt,
+        });
+
+        const resText = response.text || "";
+        const jsonMatch = resText.match(/\{[\s\S]*\}/);
+        
+        if (jsonMatch) {
+          aiData = JSON.parse(jsonMatch[0]);
+        }
+      } catch (e) {
+        console.error("AI Analysis failed:", e);
+        analysisPending = true;
+      }
+    } else {
+      analysisPending = true;
+    }
     
-    // Responsibilities
-    const responsibilities = extractList(text, ["responsibilities", "key responsibilities", "job responsibilities", "duties", "you will be responsible"]);
+    // Merge AI data with fallback
+    const finalData = aiData ? { ...fallbackData, ...aiData } : fallbackData;
     
-    // Keywords - top tech terms found
-    const keywords = skills.slice(0, 10);
-    
-    // Recruitment process
-    const recruitmentProcess = extractList(text, ["recruitment process", "hiring process", "selection process", "interview process"]);
-    
-    // Eligibility criteria
-    const eligibility = extractList(text, ["eligibility", "eligibility criteria", "who can apply", "requirements"]);
+    // Generate some keywords if empty
+    if (!finalData.keywords || finalData.keywords.length === 0) {
+      finalData.keywords = finalData.skills.slice(0, 10);
+    }
     
     return NextResponse.json({
-      company,
-      jobTitle,
-      location,
-      experience,
-      education,
-      salary,
-      openings,
-      industry,
-      jobType,
-      skills,
-      responsibilities,
-      keywords,
-      recruitmentProcess,
-      eligibility,
-      rawText: text.slice(0, 3000), // first 3k chars for preview
+      success: true,
+      message: analysisPending ? "JD saved successfully. AI analysis is pending." : "JD imported successfully",
+      data: {
+        ...finalData,
+        rawText: text.slice(0, 5000), // first 5k chars for preview
+        analysisStatus: analysisPending ? "PENDING" : "COMPLETED"
+      }
     });
   } catch (err) {
     console.error("PDF parse API error:", err);

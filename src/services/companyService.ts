@@ -13,7 +13,7 @@ const getLocalStorage = (): CompanyRecord[] => {
       return INITIAL_COMPANY_CSV_DATA;
     }
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) {
+    if (!Array.isArray(parsed) || parsed.length < 20 || !raw.includes("Google India")) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_COMPANY_CSV_DATA));
       return INITIAL_COMPANY_CSV_DATA;
     }

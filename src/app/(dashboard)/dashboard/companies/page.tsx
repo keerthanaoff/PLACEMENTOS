@@ -11,6 +11,9 @@ import { companyService } from "@/services/companyService";
 import { CompanyRecord } from "@/lib/companyCsvData";
 import { parseCompanyExcelOrCsv, ImportAnalysisResult, ParsedRow } from "@/lib/excelImporter";
 import { authService, UserSession } from "@/services/authService";
+import { driveService } from "@/services/storageService";
+import { jdService } from "@/services/jdService";
+import { studentService } from "@/services/studentService";
 
 export default function CompaniesPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -80,12 +83,53 @@ export default function CompaniesPage() {
   const [formOpenPositions, setFormOpenPositions] = useState(0);
   const [formEligibilityCriteria, setFormEligibilityCriteria] = useState("");
 
+  const [drives, setDrives] = useState<any[]>([]);
+  const [jds, setJds] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
+
   const loadCompanies = () => {
     const loaded = viewMode === "ACTIVE" 
       ? companyService.getCompanies()
       : companyService.getArchivedCompanies();
     setCompanies(loaded);
     setSelectedIds(new Set()); // Reset selections
+    
+    // Load related data
+    if (typeof window !== "undefined") {
+      setDrives(driveService.getAll());
+      setJds(jdService.getAll());
+      setStudents(studentService.getStudents());
+    }
+  };
+
+  const getCompanyMetrics = (compId: string, compName: string) => {
+    const cleanId = String(compId || "").toLowerCase().trim();
+    const cleanName = String(compName || "").toLowerCase().trim();
+    
+    // Filter JDs
+    const companyJds = jds.filter(j => 
+      (j.companyId && String(j.companyId).toLowerCase().trim() === cleanId) || 
+      (j.company && String(j.company).toLowerCase().trim() === cleanName)
+    );
+    
+    // Filter Drives
+    const companyDrives = drives.filter(d => 
+      (d.companyId && String(d.companyId).toLowerCase().trim() === cleanId) || 
+      (d.company && String(d.company).toLowerCase().trim() === cleanName)
+    );
+    
+    // Sum applicants count from drives
+    const totalApplicants = companyDrives.reduce((sum, d) => sum + (Number(d.applicantsCount) || 0), 0);
+    
+    // Sum selected count from drives
+    const totalSelected = companyDrives.reduce((sum, d) => sum + (Number(d.selectedCount) || 0), 0);
+    
+    return {
+      jdsCount: companyJds.length,
+      drivesCount: companyDrives.length,
+      applicantsCount: totalApplicants || companyDrives.reduce((sum, d) => sum + (d.registeredStudents || 0), 0),
+      selectedCount: totalSelected
+    };
   };
 
   useEffect(() => {
@@ -119,6 +163,35 @@ export default function CompaniesPage() {
     return { total, active, totalOpenPositions, mncs, startups, hiring };
   }, [companies]);
 
+  // Industry & Location Analytics
+  const analytics = useMemo(() => {
+    const indCounts: Record<string, number> = {};
+    const locCounts: Record<string, number> = {};
+
+    companies.forEach(c => {
+      if (c.archived) return;
+      
+      const ind = c.industry?.trim() || "Other";
+      indCounts[ind] = (indCounts[ind] || 0) + 1;
+
+      const locRaw = c.location?.trim() || "Other";
+      const city = locRaw.split(",")[0].trim();
+      if (city) {
+        locCounts[city] = (locCounts[city] || 0) + 1;
+      }
+    });
+
+    const sortedIndustries = Object.entries(indCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6);
+
+    const sortedLocations = Object.entries(locCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6);
+
+    return { industries: sortedIndustries, locations: sortedLocations };
+  }, [companies]);
+
   // Filtered & Sorted Companies
   const filteredCompanies = useMemo(() => {
     let list = companies;
@@ -131,6 +204,7 @@ export default function CompaniesPage() {
         c.id?.toLowerCase().includes(q) ||
         c.industry?.toLowerCase().includes(q) ||
         c.location?.toLowerCase().includes(q) ||
+        c.companyType?.toLowerCase().includes(q) ||
         c.requiredSkills?.toLowerCase().includes(q) ||
         c.jobRoles?.toLowerCase().includes(q) ||
         c.jobRole?.toLowerCase().includes(q)
@@ -138,10 +212,18 @@ export default function CompaniesPage() {
     }
 
     // Apply Filters
-    if (industryFilter !== "ALL") list = list.filter(c => c.industry === industryFilter);
-    if (locationFilter !== "ALL") list = list.filter(c => c.location?.toLowerCase().includes(locationFilter.toLowerCase()));
-    if (statusFilter !== "ALL") list = list.filter(c => (c.companyStatus || c.status) === statusFilter);
-    if (companyTypeFilter !== "ALL") list = list.filter(c => (c.companyType || "MNC") === companyTypeFilter);
+    if (industryFilter !== "ALL") {
+      list = list.filter(c => c.industry?.toLowerCase().trim() === industryFilter.toLowerCase().trim());
+    }
+    if (locationFilter !== "ALL") {
+      list = list.filter(c => c.location?.toLowerCase().includes(locationFilter.toLowerCase()));
+    }
+    if (statusFilter !== "ALL") {
+      list = list.filter(c => (c.companyStatus || c.status)?.toLowerCase().trim() === statusFilter.toLowerCase().trim());
+    }
+    if (companyTypeFilter !== "ALL") {
+      list = list.filter(c => (c.companyType || "MNC").toLowerCase().trim() === companyTypeFilter.toLowerCase().trim());
+    }
 
     // Apply Sorting
     list = [...list];
@@ -239,23 +321,23 @@ export default function CompaniesPage() {
 
     const data: Partial<CompanyRecord> = {
       name: formName.trim(),
-      location: formLocation.trim() || "N/A",
-      website: formWebsite.trim() || "N/A",
-      industry: formIndustry.trim() || "Software & Technology",
+      location: formLocation.trim() || "",
+      website: formWebsite.trim() || "",
+      industry: formIndustry.trim() || "",
       companyType: formCompanyType.trim() || "MNC",
-      hrName: formContactPerson.trim() || "N/A",
-      hrPhone: formMobile.trim() || "N/A",
-      hrEmail: formEmail.trim() || "N/A",
-      salaryPackage: formCtc.trim() || "N/A",
+      hrName: formContactPerson.trim() || "",
+      hrPhone: formMobile.trim() || "",
+      hrEmail: formEmail.trim() || "",
+      salaryPackage: formCtc.trim() || "",
       companyStatus: formStatus,
       status: formStatus,
       placementTeamMember: formPlacementTeam.trim() || "Placement Officer",
-      description: formDescription.trim() || "N/A",
-      jobRoles: formJobRoles.trim() || "N/A",
-      requiredSkills: formRequiredSkills.trim() || "N/A",
+      description: formDescription.trim() || "",
+      jobRoles: formJobRoles.trim() || "",
+      requiredSkills: formRequiredSkills.trim() || "",
       jobType: formJobType,
       openPositions: Number(formOpenPositions) || 0,
-      eligibilityCriteria: formEligibilityCriteria.trim() || "N/A"
+      eligibilityCriteria: formEligibilityCriteria.trim() || ""
     };
 
     if (editingCompany) {
@@ -280,6 +362,26 @@ export default function CompaniesPage() {
 
   // Archive Handler
   const handleArchive = (id: string, name: string) => {
+    const metrics = getCompanyMetrics(id, name);
+    
+    if (metrics.jdsCount > 0 || metrics.drivesCount > 0 || metrics.applicantsCount > 0) {
+      const confirmText = `WARNING: Company "${name}" has the following active records:
+- ${metrics.drivesCount} Active Placement Drive(s)
+- ${metrics.jdsCount} Job Description(s) (JDs)
+- ${metrics.applicantsCount} Candidate Application(s)
+
+Deleting/archiving this company will affect these active recruitment records and candidates.
+Are you sure you want to proceed with deleting this company?`;
+      
+      if (!window.confirm(confirmText)) {
+        return;
+      }
+    } else {
+      if (!window.confirm(`Are you sure you want to delete/archive "${name}"?`)) {
+        return;
+      }
+    }
+
     companyService.archiveCompany(id);
     loadCompanies();
     setSuccessMessage(`Company "${name}" moved to archives.`);
@@ -341,40 +443,40 @@ export default function CompaniesPage() {
       return {
         id: d.id || `C_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         name: d.name || "Unknown Company",
-        location: d.location || "N/A",
-        website: d.website || "N/A",
-        contactPerson: d.hrName || d.contactPerson || "N/A",
-        mobile: d.hrPhone || d.mobile || "N/A",
-        email: d.hrEmail || d.email || "N/A",
+        location: d.location || "",
+        website: d.website || "",
+        contactPerson: d.hrName || d.contactPerson || "",
+        mobile: d.hrPhone || d.mobile || "",
+        email: d.hrEmail || d.email || "",
         companySize: d.companyType === "MNC" ? "5,000+ Employees" : "50-500 Employees",
         numberOfEmployees: d.companyType === "MNC" ? "5000+" : "100+",
-        industry: d.industry || "Software & Technology",
-        ctc: d.salaryPackage || d.ctc || "N/A",
+        industry: d.industry || "",
+        ctc: d.salaryPackage || d.ctc || "",
         status: d.companyStatus || d.status || "COLD",
         approvalStatus: "APPROVED",
         dateAdded: new Date().toISOString().split("T")[0],
         placementTeamMember: "Placement Lead",
-        recruiter: d.hrName || "N/A",
-        jobRole: d.jobRoles || "N/A",
-        jd: d.description || "N/A",
-        jdPdf: "N/A",
+        recruiter: d.hrName || "",
+        jobRole: d.jobRoles || "",
+        jd: d.description || "",
+        jdPdf: "",
         driveStatus: (d.companyStatus || d.status) === "DRIVE_COMPLETED" ? "Completed" : "Scheduled",
         placedStudentsCount: 0,
-        placedStudentsDetails: "N/A",
+        placedStudentsDetails: "",
         archived: false,
 
         // Extended fields
         companyType: d.companyType || "MNC",
-        hrName: d.hrName || "N/A",
-        hrEmail: d.hrEmail || "N/A",
-        hrPhone: d.hrPhone || "N/A",
-        description: d.description || "N/A",
-        jobRoles: d.jobRoles || "N/A",
-        requiredSkills: d.requiredSkills || "N/A",
-        salaryPackage: d.salaryPackage || "N/A",
+        hrName: d.hrName || "",
+        hrEmail: d.hrEmail || "",
+        hrPhone: d.hrPhone || "",
+        description: d.description || "",
+        jobRoles: d.jobRoles || "",
+        requiredSkills: d.requiredSkills || "",
+        salaryPackage: d.salaryPackage || "",
         jobType: d.jobType || "Full Time",
         openPositions: Number(d.openPositions) || 0,
-        eligibilityCriteria: d.eligibilityCriteria || "N/A",
+        eligibilityCriteria: d.eligibilityCriteria || "",
         companyStatus: d.companyStatus || "COLD"
       };
     });
@@ -756,6 +858,71 @@ export default function CompaniesPage() {
         ))}
       </div>
 
+      {/* Analytics Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Industry distribution chart */}
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 shadow-sm space-y-4">
+          <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2 pb-2 border-b border-gray-150 dark:border-gray-800">
+            <Building2 size={16} className="text-indigo-500" />
+            <span>Industry Distribution</span>
+          </h3>
+          <div className="space-y-3.5">
+            {analytics.industries.map(([ind, count], idx) => {
+              const totalActive = companies.filter(c => !c.archived).length || 1;
+              const pct = ((count / totalActive) * 100).toFixed(1);
+              return (
+                <div key={ind} className="space-y-1">
+                  <div className="flex justify-between text-xs font-semibold">
+                    <span className="text-gray-700 dark:text-gray-300">{ind}</span>
+                    <span className="text-gray-900 dark:text-white">{count} ({pct}%)</span>
+                  </div>
+                  <div className="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full ${['bg-indigo-500', 'bg-purple-500', 'bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 'bg-pink-500'][idx % 6]}`} 
+                      style={{ width: `${pct}%` }}
+                    ></div>
+                  </div>
+                </div>
+              );
+            })}
+            {analytics.industries.length === 0 && (
+              <p className="text-xs text-gray-500 italic">No industries mapped.</p>
+            )}
+          </div>
+        </div>
+
+        {/* Location distribution chart */}
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 shadow-sm space-y-4">
+          <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2 pb-2 border-b border-gray-150 dark:border-gray-800">
+            <MapPin size={16} className="text-emerald-500" />
+            <span>Top Locations</span>
+          </h3>
+          <div className="space-y-3.5">
+            {analytics.locations.map(([loc, count], idx) => {
+              const totalActive = companies.filter(c => !c.archived).length || 1;
+              const pct = ((count / totalActive) * 100).toFixed(1);
+              return (
+                <div key={loc} className="space-y-1">
+                  <div className="flex justify-between text-xs font-semibold">
+                    <span className="text-gray-700 dark:text-gray-300 font-bold">📍 {loc}</span>
+                    <span className="text-gray-900 dark:text-white font-bold">{count} ({pct}%)</span>
+                  </div>
+                  <div className="w-full h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full ${['bg-emerald-500', 'bg-teal-500', 'bg-indigo-500', 'bg-cyan-500', 'bg-sky-500', 'bg-blue-500'][idx % 6]}`} 
+                      style={{ width: `${pct}%` }}
+                    ></div>
+                  </div>
+                </div>
+              );
+            })}
+            {analytics.locations.length === 0 && (
+              <p className="text-xs text-gray-500 italic">No locations mapped.</p>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Success Notification */}
       {successMessage && (
         <div className="p-4 bg-emerald-50 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center gap-3 animate-in fade-in duration-150 whitespace-pre-line">
@@ -883,14 +1050,17 @@ export default function CompaniesPage() {
                 <th className="px-4 py-3">Industry</th>
                 <th className="px-4 py-3">Location</th>
                 <th className="px-4 py-3">Company Type</th>
-                <th className="px-4 py-3">Open Positions</th>
-                <th className="px-4 py-3">Salary Package</th>
+                <th className="px-4 py-3">Website</th>
                 <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 text-center">JDs</th>
+                <th className="px-4 py-3 text-center">Drives</th>
+                <th className="px-4 py-3 text-center">Applicants</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-800 text-gray-700 dark:text-gray-300 font-medium">
               {paginatedCompanies.map((comp, idx) => {
+                const metrics = getCompanyMetrics(comp.id, comp.name);
                 return (
                   <tr key={`comp-${comp.id}-${idx}`} className="hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
                     {isAuthorized && (
@@ -914,11 +1084,11 @@ export default function CompaniesPage() {
                     </td>
                     <td className="px-4 py-3">
                       <span className="px-2 py-0.5 rounded bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-300 font-semibold border border-indigo-100 dark:border-indigo-800">
-                        {comp.industry}
+                        {comp.industry || "N/A"}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      {comp.location && comp.location !== "N/A" ? (
+                      {comp.location ? (
                         <a 
                           href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${comp.name} ${comp.location}`)}`}
                           target="_blank"
@@ -928,12 +1098,33 @@ export default function CompaniesPage() {
                           📍 {comp.location}
                         </a>
                       ) : (
-                        <span className="text-gray-400 italic">Not available</span>
+                        <span className="text-gray-400 italic">Not specified</span>
                       )}
                     </td>
-                    <td className="px-4 py-3">{comp.companyType || "MNC"}</td>
-                    <td className="px-4 py-3 font-bold">{comp.openPositions || 0}</td>
-                    <td className="px-4 py-3 font-bold text-emerald-600 dark:text-emerald-400">{comp.salaryPackage || comp.ctc}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold border ${
+                        (comp.companyType || "MNC").toUpperCase() === "MNC"
+                          ? "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-950 dark:text-purple-300 dark:border-purple-900"
+                          : "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-900"
+                      }`}>
+                        {comp.companyType || "MNC"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {comp.website ? (
+                        <a 
+                          href={comp.website.startsWith("http") ? comp.website : `https://${comp.website}`} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1 font-semibold"
+                        >
+                          <ExternalLink size={13} />
+                          <span>Website</span>
+                        </a>
+                      ) : (
+                        <span className="text-gray-400 italic">-</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
                         (comp.companyStatus || comp.status) === "DRIVE_COMPLETED" ? "bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300" :
@@ -941,9 +1132,12 @@ export default function CompaniesPage() {
                         (comp.companyStatus || comp.status) === "WARM" ? "bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-900/40 dark:text-amber-300" :
                         "bg-gray-100 text-gray-700 border border-gray-200 dark:bg-gray-800 dark:text-gray-300"
                       }`}>
-                        {comp.companyStatus || comp.status}
+                        {(comp.companyStatus || comp.status || "COLD").replace("_", " ")}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-center font-bold text-gray-900 dark:text-white">{metrics.jdsCount}</td>
+                    <td className="px-4 py-3 text-center font-bold text-gray-900 dark:text-white">{metrics.drivesCount}</td>
+                    <td className="px-4 py-3 text-center font-bold text-gray-900 dark:text-white">{metrics.applicantsCount}</td>
                     <td className="px-4 py-3 text-right space-x-3.5">
                       <Link 
                         href={`/dashboard/companies/${comp.id}`} 
