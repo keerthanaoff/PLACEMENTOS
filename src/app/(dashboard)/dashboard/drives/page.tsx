@@ -5,8 +5,8 @@ import Link from "next/link";
 import { 
   CalendarDays, Plus, Upload, FileSpreadsheet, CheckCircle2, 
   AlertTriangle, AlertCircle, Check, ArrowRight, X, Search, 
-  Briefcase, Filter, Building2, MapPin, Users, Award, MoreVertical,
-  ChevronDown, ChevronUp, Download, Eye, Edit, Trash2, RefreshCw
+  Briefcase, Filter, Building2, MapPin, Users, MoreVertical,
+  ChevronDown, ChevronUp, Download, Eye, Edit, Trash2
 } from "lucide-react";
 import { driveService, studentService } from "@/services/storageService";
 import { companyService } from "@/services/companyService";
@@ -349,13 +349,6 @@ export default function DrivesPage() {
   // Analytics Calculations
   // ----------------------------------------------------
   const analytics = useMemo(() => {
-    const activeDrives = drives.filter(d => d.status?.toLowerCase() === 'active').length;
-    const upcomingDrives = drives.filter(d => d.status?.toLowerCase() === 'upcoming').length;
-    const completedDrives = drives.filter(d => d.status?.toLowerCase() === 'completed').length;
-    
-    const totalApplicants = processedDrives.reduce((acc, d) => acc + (d.applicantsCount || 0), 0);
-    const totalSelected = processedDrives.reduce((acc, d) => acc + (d.selectedCount || 0), 0);
-    
     // Company Mix
     const companyTypes: Record<string, number> = {};
     processedDrives.forEach(d => {
@@ -370,8 +363,8 @@ export default function DrivesPage() {
       industries[ind] = (industries[ind] || 0) + 1;
     });
 
-    return { activeDrives, upcomingDrives, completedDrives, totalApplicants, totalSelected, companyTypes, industries };
-  }, [drives, processedDrives]);
+    return { companyTypes, industries };
+  }, [processedDrives]);
 
   return (
     <div className="space-y-6">
@@ -407,24 +400,6 @@ export default function DrivesPage() {
         </div>
       )}
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        {[
-          { label: "Active Drives", value: analytics.activeDrives, icon: RefreshCw, color: "text-indigo-500", bg: "bg-indigo-50 dark:bg-indigo-900/20" },
-          { label: "Upcoming Drives", value: analytics.upcomingDrives, icon: CalendarDays, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-900/20" },
-          { label: "Completed Drives", value: analytics.completedDrives, icon: CheckCircle2, color: "text-emerald-500", bg: "bg-emerald-50 dark:bg-emerald-900/20" },
-          { label: "Total Applicants", value: analytics.totalApplicants, icon: Users, color: "text-purple-500", bg: "bg-purple-50 dark:bg-purple-900/20" },
-          { label: "Students Selected", value: analytics.totalSelected, icon: Award, color: "text-emerald-600", bg: "bg-emerald-100 dark:bg-emerald-900/30" },
-        ].map((card, idx) => (
-          <div key={idx} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow cursor-default group">
-            <div className={`w-8 h-8 rounded-lg ${card.bg} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
-              <card.icon size={16} className={card.color} />
-            </div>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">{card.value}</p>
-            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mt-0.5 uppercase">{card.label}</p>
-          </div>
-        ))}
-      </div>
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
