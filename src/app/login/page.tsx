@@ -34,11 +34,9 @@ export default function LoginPage() {
         <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
         
         <div className="relative z-10 p-12 text-white flex flex-col items-start max-w-lg">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="p-2 bg-white/10 rounded-xl backdrop-blur-md border border-white/20">
-              <img src="/logo.png" alt="PlacementOS Logo" className="w-10 h-10 object-contain rounded-lg" />
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight">PLACEMENTOS AI</h1>
+          <div className="flex items-center gap-4 mb-8">
+            <img src="/rathinam-logo.png" alt="Rathinam Logo" className="h-16 w-auto object-contain" />
+            <h1 className="text-3xl font-bold tracking-wider border-l border-white/20 pl-4">PLACEMENTOS</h1>
           </div>
           <h2 className="text-4xl font-extrabold mb-6 leading-tight">
             From Student Potential <br />
@@ -61,6 +59,8 @@ export default function LoginPage() {
               <p className="text-sm text-indigo-200/80 mt-1">Real-time reports and downloads.</p>
             </div>
           </div>
+
+
         </div>
       </div>
 
@@ -68,11 +68,9 @@ export default function LoginPage() {
       <div className="flex flex-1 flex-col justify-center items-center p-8 lg:p-12">
         <div className="w-full max-w-md space-y-8">
           <div className="text-center lg:text-left">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-1.5 bg-indigo-600 rounded-xl shadow-md">
-                <img src="/logo.png" alt="PlacementOS Logo" className="w-8 h-8 object-contain rounded-lg" />
-              </div>
-              <h1 className="text-2xl font-bold">PLACEMENTOS AI</h1>
+            <div className="flex items-center gap-4 mb-6">
+              <img src="/rathinam-logo.png" alt="Rathinam Logo" className="h-12 w-auto object-contain" />
+              <h1 className="text-2xl font-bold tracking-wider text-gray-900 dark:text-white border-l border-gray-200 dark:border-gray-800 pl-4">PLACEMENTOS</h1>
             </div>
             <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
               Role Portal Sign In

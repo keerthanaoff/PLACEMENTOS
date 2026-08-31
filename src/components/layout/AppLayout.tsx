@@ -56,6 +56,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     setCheckingAuth(false);
   }, [router, pathname]);
 
+  useEffect(() => {
+    const activeItem = allNavItems.find(item => 
+      pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href + '/'))
+    );
+    if (activeItem) {
+      document.title = `PLACEMENTOS | ${activeItem.name}`;
+    } else {
+      document.title = "PLACEMENTOS | RATHINAM";
+    }
+  }, [pathname]);
+
   const handleLogout = () => {
     authService.logout();
     router.push("/login");
@@ -92,9 +103,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-800">
-          <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="PlacementOS Logo" className="w-8 h-8 object-contain rounded-md" />
-            <span className="font-bold text-lg text-gray-900 dark:text-white">PLACEMENTOS</span>
+          <div className="flex items-center gap-3">
+            <img src="/rathinam-icon.png" alt="Rathinam Icon" className="w-8 h-8 object-contain" />
+            <span className="font-bold text-lg text-gray-900 dark:text-white tracking-wider">PLACEMENTOS</span>
           </div>
           <button className="lg:hidden text-gray-500" onClick={() => setIsSidebarOpen(false)}>
             <X size={20} />
@@ -159,14 +170,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Navbar */}
         <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 sm:px-6 z-10">
-          <div className="flex items-center">
+          <div className="flex items-center gap-2 sm:gap-4 flex-1">
             <button 
-              className="mr-4 lg:hidden text-gray-500 hover:text-gray-900 dark:hover:text-white"
+              className="mr-2 lg:hidden text-gray-500 hover:text-gray-900 dark:hover:text-white"
               onClick={() => setIsSidebarOpen(true)}
             >
               <Menu size={24} />
             </button>
-            <div className="hidden sm:flex relative w-64 md:w-96">
+            
+
+
+            <div className="hidden md:flex relative w-64 lg:w-80">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search className="h-4 w-4 text-gray-400" />
               </div>

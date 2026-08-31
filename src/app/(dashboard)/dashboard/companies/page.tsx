@@ -517,7 +517,7 @@ Are you sure you want to proceed with deleting this company?`;
     const content = `
       <html>
         <head>
-          <title>PLACEMENTOS - Company Intelligence Report</title>
+          <title>PLACEMENTOS | Company Intelligence Report</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
             body { font-family: 'Inter', sans-serif; color: #1f2937; padding: 40px; background: #fff; }
@@ -540,7 +540,7 @@ Are you sure you want to proceed with deleting this company?`;
         <body>
           <div class="header">
             <div>
-              <div class="title">PLACEMENTOS</div>
+              <div class="title">PLACEMENTOS | RATHINAM</div>
               <div class="subtitle">Company Intelligence Report</div>
             </div>
             <div class="date">Generated Date: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
@@ -654,7 +654,7 @@ Are you sure you want to proceed with deleting this company?`;
       <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
       <head>
         <meta charset="utf-8">
-        <title>PLACEMENTOS - Company Intelligence Report</title>
+        <title>PLACEMENTOS | Company Intelligence Report</title>
         <style>
           body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; color: #374151; }
           h1 { color: #4f46e5; font-size: 24pt; margin-bottom: 5px; }
@@ -666,7 +666,7 @@ Are you sure you want to proceed with deleting this company?`;
         </style>
       </head>
       <body>
-        <h1>PLACEMENTOS</h1>
+        <h1>PLACEMENTOS | RATHINAM</h1>
         <h2>Company Intelligence Report</h2>
         <div class="meta">
           <strong>Generated Date:</strong> ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}<br>

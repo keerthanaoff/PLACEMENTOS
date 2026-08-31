@@ -7,12 +7,12 @@ import { JDProvider } from "@/context/JDContext";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "PLACEMENTOS AI",
-  description: "From Student Potential to Placement Success",
+  title: "PLACEMENTOS | RATHINAM",
+  description: "RATHINAM PLACEMENTOS - AI-powered placement management portal.",
   icons: {
-    icon: "/icon.png",
-    shortcut: "/icon.png",
-    apple: "/icon.png",
+    icon: "/rathinam-icon.png",
+    shortcut: "/rathinam-icon.png",
+    apple: "/rathinam-icon.png",
   },
 };
 
